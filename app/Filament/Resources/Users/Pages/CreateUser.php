@@ -1,0 +1,42 @@
+<?php
+
+namespace App\Filament\Resources\Users\Pages;
+
+use App\Filament\Resources\Users\UserResource;
+use App\Models\AuditLog;
+use App\Models\User;
+use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\Auth;
+
+class CreateUser extends CreateRecord
+{
+    protected static string $resource = UserResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+    protected function afterCreate(): void
+    {
+        /** @var User $record */
+        $record = $this->record;
+
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'USER_CREATED',
+            'entity_type' => User::class,
+            'entity_id' => $record->id,
+            'new_values' => [
+                'name' => $record->name,
+                'username' => $record->username,
+                'email' => $record->email,
+                'roles' => $record->roles->pluck('name')->toArray(),
+                'is_active' => $record->is_active,
+                'must_change_password' => $record->must_change_password,
+            ],
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+    }
+}
