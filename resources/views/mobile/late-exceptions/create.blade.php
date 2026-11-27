@@ -11,7 +11,7 @@
                 </a>
                 <div>
                     <h2 class="text-sm font-bold text-gray-900">Formulir Dispensasi Kahar</h2>
-                    <p class="text-[11px] text-gray-500">Permohonan Pembebasan Potongan TL (FR-303)</p>
+                    <p class="text-[11px] text-gray-500">Permohonan Izin Keterlambatan Darurat</p>
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@
                                     data-date="{{ $att->date->toDateString() }}"
                                     {{ old('attendance_id', $selectedAttendanceId) == $att->id ? 'selected' : '' }}
                                 >
-                                    {{ $att->date->translatedFormat('d M Y') }} • Terlambat {{ $att->late_minutes }} Menit (Potongan {{ $att->deduction_percentage }}%)
+                                    {{ $att->date->translatedFormat('d M Y') }} • Terlambat {{ $att->late_minutes }} Menit
                                 </option>
                             @endforeach
                         </select>

@@ -88,12 +88,12 @@
             </div>
         </div>
 
-        <!-- Active Sanction & Multi-Month Deduction Schedule Card (FR-307) -->
+        <!-- Active Sanction Card -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
             <div class="flex items-center justify-between border-b border-gray-100 pb-2">
                 <h3 class="text-xs font-bold text-[#0B2A4A] uppercase tracking-wider flex items-center gap-1.5">
                     <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"></path></svg>
-                    <span>Status Sanksi & Jadwal Potongan Honor</span>
+                    <span>Status Sanksi Disiplin</span>
                 </h3>
                 <span class="text-[10px] font-bold text-gray-400 font-mono">Lampiran III SPK</span>
             </div>
@@ -102,7 +102,7 @@
             <div class="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-[10px] text-amber-900 leading-relaxed flex items-start gap-2">
                 <span class="text-amber-600 font-bold shrink-0">ℹ️</span>
                 <div>
-                    <strong>Pemisahan Tegas Akumulasi:</strong> Potongan Surat Peringatan (SP) ini merupakan <em>Akumulasi 2</em>, murni berdiri sendiri dan terpisah dari potongan keterlambatan harian (<em>Akumulasi 1 TL</em>).
+                    <strong>Pemisahan Tegas Akumulasi:</strong> Evaluasi Surat Peringatan (SP) ini merupakan <em>Akumulasi 2</em>, terpisah dari keterlambatan harian (<em>Akumulasi 1</em>).
                 </div>
             </div>
 
@@ -119,19 +119,14 @@
 
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div class="p-2 bg-white rounded-lg border border-rose-100">
-                            <span class="text-[10px] text-gray-500 block">Potongan Honor Bulanan</span>
+                            <span class="text-[10px] text-gray-500 block">Bobot Sanksi</span>
                             <span class="font-bold text-rose-700 font-mono">
                                 {{ (float) $activeSanction->deduction_percentage }}%
-                                @if($monthlyDeductionAmount > 0)
-                                    <span class="text-[10px] text-gray-500 font-normal block">
-                                        (Rp {{ number_format($monthlyDeductionAmount, 0, ',', '.') }}/bln)
-                                    </span>
-                                @endif
                             </span>
                         </div>
 
                         <div class="p-2 bg-white rounded-lg border border-rose-100">
-                            <span class="text-[10px] text-gray-500 block">Durasi Pemotongan</span>
+                            <span class="text-[10px] text-gray-500 block">Durasi Pembinaan</span>
                             <span class="font-bold text-gray-900 font-mono">
                                 {{ $activeSanction->duration_months }} Bulan
                             </span>
@@ -144,7 +139,7 @@
                             @if($activeSanction->start_date && $activeSanction->end_date)
                                 {{ $activeSanction->start_date->translatedFormat('F Y') }} s.d. {{ $activeSanction->end_date->translatedFormat('F Y') }}
                             @else
-                                Menunggu Periode Gaji Berikutnya (M+1)
+                                Menunggu Periode Berikutnya
                             @endif
                         </span>
                     </div>
@@ -164,7 +159,7 @@
                     <div>
                         <h4 class="text-xs font-bold text-emerald-900">Tidak Ada Sanksi Berjalan</h4>
                         <p class="text-[11px] text-emerald-700 mt-0.5">
-                            Saat ini Anda tidak memiliki Surat Peringatan aktif dan tidak dikenakan pemotongan honor sanksi disiplin.
+                            Saat ini Anda tidak memiliki Surat Peringatan aktif.
                         </p>
                     </div>
                 </div>

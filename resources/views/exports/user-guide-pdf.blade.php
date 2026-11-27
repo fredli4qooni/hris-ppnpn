@@ -121,44 +121,47 @@
             </ol>
         </section>
 
-        <!-- Chapter 3: Jam Kerja & Toleransi 15 Menit -->
+        <!-- Chapter 3: Jam Kerja & Kategori TL per Jabatan -->
         <section class="space-y-2">
             <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider border-b border-gray-200 pb-1 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-[#0058A8]"></span>
-                <span>BAB III: Jam Dinas, Shift Satpam, & Toleransi Keterlambatan (FR-207)</span>
+                <span>BAB III: Jam Dinas, Shift Satpam, &amp; Ketentuan Keterlambatan per Jabatan (FR-207)</span>
             </h3>
             <p class="text-justify text-gray-700">
-                Sesuai Lampiran IV SPK, pegawai yang hadir terlambat <strong>$\le$ 15 menit</strong> mendapatkan fasilitas kompensasi toleransi dengan kewajiban mengganti waktu kepulangan sejumlah menit keterlambatan tersebut pada hari yang sama.
+                Ketentuan batas waktu kedatangan dan kategori tingkat keterlambatan (TL 0 s.d. TL 3) diterapkan berbeda sesuai posisi tugas PPNPN sebagai berikut:
             </p>
             <div class="border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
-                <table class="w-full text-left border-collapse text-[10.5px]">
+                <table class="w-full text-left border-collapse text-[10px]">
                     <thead class="bg-gray-100 text-gray-700">
                         <tr>
-                            <th class="py-2 px-3">Klasifikasi Keterlambatan</th>
-                            <th class="py-2 px-3">Rentang Waktu Keterlambatan</th>
-                            <th class="py-2 px-3 text-right">Potongan Honor Harian</th>
+                            <th class="py-2 px-2.5">Kelompok Jabatan</th>
+                            <th class="py-2 px-2.5">TL 0 (0%)</th>
+                            <th class="py-2 px-2.5">TL 1 (0,5%)</th>
+                            <th class="py-2 px-2.5">TL 2 (1,0%)</th>
+                            <th class="py-2 px-2.5">TL 3 (1,5%)</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr>
-                            <td class="py-1.5 px-3 font-semibold text-emerald-800">Toleransi Lunas</td>
-                            <td class="py-1.5 px-3">$\le$ 15 Menit (Diganti saat pulang)</td>
-                            <td class="py-1.5 px-3 text-right font-bold text-emerald-600">0,0% (Bebas Potongan)</td>
+                            <td class="py-1.5 px-2.5 font-semibold text-gray-900">Pramubakti (OB)</td>
+                            <td class="py-1.5 px-2.5 font-mono">&le; 06:45</td>
+                            <td class="py-1.5 px-2.5 font-mono">06:46 - 07:00</td>
+                            <td class="py-1.5 px-2.5 font-mono">07:01 - 07:29</td>
+                            <td class="py-1.5 px-2.5 font-mono">&ge; 07:30</td>
                         </tr>
                         <tr>
-                            <td class="py-1.5 px-3 font-semibold text-amber-800">Tingkat TL 1</td>
-                            <td class="py-1.5 px-3">1 s.d. 30 Menit (Tanpa kompensasi)</td>
-                            <td class="py-1.5 px-3 text-right font-bold text-rose-600">0,5% / Hari</td>
+                            <td class="py-1.5 px-2.5 font-semibold text-gray-900">Driver, Receptionist, Teknisi, Satpam Pagi</td>
+                            <td class="py-1.5 px-2.5 font-mono">&le; 07:00</td>
+                            <td class="py-1.5 px-2.5 font-mono">07:01 - 07:30</td>
+                            <td class="py-1.5 px-2.5 font-mono">07:31 - 07:59</td>
+                            <td class="py-1.5 px-2.5 font-mono">&ge; 08:00</td>
                         </tr>
                         <tr>
-                            <td class="py-1.5 px-3 font-semibold text-amber-800">Tingkat TL 2</td>
-                            <td class="py-1.5 px-3">31 s.d. 60 Menit</td>
-                            <td class="py-1.5 px-3 text-right font-bold text-rose-600">1,0% / Hari</td>
-                        </tr>
-                        <tr>
-                            <td class="py-1.5 px-3 font-semibold text-rose-800">Tingkat TL 3</td>
-                            <td class="py-1.5 px-3">> 60 Menit</td>
-                            <td class="py-1.5 px-3 text-right font-bold text-rose-600">1,5% / Hari</td>
+                            <td class="py-1.5 px-2.5 font-semibold text-gray-900">Satpam Shift Malam</td>
+                            <td class="py-1.5 px-2.5 font-mono">&le; 19:00</td>
+                            <td class="py-1.5 px-2.5 font-mono">19:01 - 19:30</td>
+                            <td class="py-1.5 px-2.5 font-mono">19:31 - 19:59</td>
+                            <td class="py-1.5 px-2.5 font-mono">&ge; 20:00</td>
                         </tr>
                     </tbody>
                 </table>

@@ -105,32 +105,16 @@ class CybersecurityAndPrivacyTest extends TestCase
     }
 
     /**
-     * Test repeated biometric failures trigger a temporary 15-minute lockout (US-703).
+     * Test repeated liveness spoofing failures trigger a temporary 15-minute lockout (US-703).
      */
     public function test_biometric_brute_force_triggers_lockout_after_repeated_failures(): void
     {
         $this->actingAs($this->karyawanUser);
 
-        // Enroll sample face vector
-        $dummyVector = array_fill(0, BiometricVerificationService::VECTOR_DIMENSION, 0.1);
-        $this->employee->faceTemplate()->updateOrCreate(
-            ['employee_id' => $this->employee->id],
-            [
-                'encrypted_vector' => app(BiometricVerificationService::class)->encryptVector($dummyVector),
-                'sample_count' => 1,
-                'model_version' => BiometricVerificationService::MODEL_VERSION,
-                'enrolled_by_admin_id' => User::where('username', 'admin')->first()->id,
-                'enrolled_at' => now(),
-            ]
-        );
-
-        // Mismatched face probe vector
-        $mismatchedVector = array_fill(0, BiometricVerificationService::VECTOR_DIMENSION, 0.9);
-
-        // 1x1 1x1 transparent dummy PNG base64
+        // 1x1 transparent dummy PNG base64
         $dummyPhoto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
-        // Trigger 5 consecutive mismatched check-ins
+        // Trigger 5 consecutive liveness spoofing check-in failures
         for ($i = 1; $i <= 5; $i++) {
             $response = $this->postJson(route('mobile.attendance.check-in'), [
                 'position_id' => Position::first()->id,
@@ -138,8 +122,7 @@ class CybersecurityAndPrivacyTest extends TestCase
                 'longitude' => 105.2667900,
                 'accuracy' => 10,
                 'is_mock' => false,
-                'liveness_verified' => true,
-                'face_probe_vector' => $mismatchedVector,
+                'liveness_verified' => false,
                 'photo' => $dummyPhoto,
             ]);
 
@@ -160,7 +143,6 @@ class CybersecurityAndPrivacyTest extends TestCase
             'accuracy' => 10,
             'is_mock' => false,
             'liveness_verified' => true,
-            'face_probe_vector' => $mismatchedVector,
             'photo' => $dummyPhoto,
         ]);
 

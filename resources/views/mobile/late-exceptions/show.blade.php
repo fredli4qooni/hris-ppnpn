@@ -50,7 +50,7 @@
                         <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block">Rekaman Absensi Terhubung:</span>
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-gray-700">Jam Datang: <strong>{{ $exception->attendance->check_in_at?->timezone('Asia/Jakarta')->format('H:i') ?? '-' }} WIB</strong></span>
-                            <span class="font-bold text-rose-700">Terlambat {{ $exception->attendance->late_minutes }} Menit (TL {{ $exception->attendance->deduction_percentage }}%)</span>
+                            <span class="font-bold text-rose-700">Terlambat {{ $exception->attendance->late_minutes }} Menit ({{ $exception->attendance->tl_category }})</span>
                         </div>
                     </div>
                 @endif
@@ -135,7 +135,7 @@
                     @endif
                     @if($exception->status === \App\Models\LateException::STATUS_APPROVED)
                         <div class="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-bold mt-1">
-                            ✓ Potongan Keterlambatan TL pada tanggal ini telah dibebaskan secara sah (Dianulir).
+                            ✓ Dispensasi keterlambatan pada tanggal ini telah disetujui secara sah.
                         </div>
                     @endif
                 @else

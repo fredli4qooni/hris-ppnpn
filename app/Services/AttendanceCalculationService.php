@@ -10,21 +10,6 @@ use Illuminate\Support\Carbon;
 class AttendanceCalculationService
 {
     /**
-     * Maximum late threshold in minutes for 15-minute tolerance grace period.
-     */
-    public const TOLERANCE_MINUTES = 15;
-
-    /**
-     * Upper bound minutes for TL 1 late category (16 to 30 minutes).
-     */
-    public const TL_1_MAX_MINUTES = 30;
-
-    /**
-     * Upper bound minutes for TL 2 late category (31 to 60 minutes).
-     */
-    public const TL_2_MAX_MINUTES = 60;
-
-    /**
      * Deduction percentages according to Lampiran IV SPK.
      */
     public const DEDUCTION_ON_TIME = 0.00;
@@ -36,6 +21,34 @@ class AttendanceCalculationService
     public const DEDUCTION_TL_2 = 1.00;
 
     public const DEDUCTION_TL_3 = 1.50;
+
+    /**
+     * Role-based TL threshold cutoffs (HH:MM:SS) keyed by tl_group.
+     *
+     * @var array<string, array{tl_1: array{int, int, int}, tl_2: array{int, int, int}, tl_3: array{int, int, int}}>
+     */
+    private const TL_GROUP_CUTOFFS = [
+        'OB' => [
+            'tl_1' => [6, 46, 0],
+            'tl_2' => [7, 1, 0],
+            'tl_3' => [7, 30, 0],
+        ],
+        'STANDARD' => [
+            'tl_1' => [7, 1, 0],
+            'tl_2' => [7, 31, 0],
+            'tl_3' => [8, 0, 0],
+        ],
+        'SECURITY_DAY' => [
+            'tl_1' => [7, 1, 0],
+            'tl_2' => [7, 31, 0],
+            'tl_3' => [8, 0, 0],
+        ],
+        'SECURITY_NIGHT' => [
+            'tl_1' => [19, 1, 0],
+            'tl_2' => [19, 31, 0],
+            'tl_3' => [20, 0, 0],
+        ],
+    ];
 
     /**
      * Calculate check-in status, late minutes, TL category, and deduction percentage.
@@ -78,47 +91,38 @@ class AttendanceCalculationService
             }
         }
 
-        // Calculate late minutes
-        if ($checkIn->lessThanOrEqualTo($scheduleStart)) {
+        $workCarbon = Carbon::parse($workDate, 'Asia/Jakarta');
+        $thresholds = $this->resolveTlThresholds($dutyPosition, $shiftType, $workCarbon);
+
+        // Evaluate check-in against role-specific TL thresholds (TL 0 / TL 1 / TL 2 / TL 3)
+        if ($checkIn->lessThan($thresholds['tl_1_start'])) {
             $lateMinutes = 0;
             $status = Attendance::STATUS_ON_TIME;
             $tlCategory = Attendance::TL_NONE;
             $deductionPercentage = self::DEDUCTION_ON_TIME;
             $requiredCompensationMinutes = 0;
             $statusLabel = 'Tepat Waktu';
-            $notes = 'Hadir tepat waktu sebelum atau pada jam dinas resmi.';
+            $notes = 'Hadir tepat waktu sesuai jadwal.';
         } else {
-            $lateMinutes = (int) $scheduleStart->diffInMinutes($checkIn, false);
+            $lateMinutes = max(1, (int) $scheduleStart->diffInMinutes($checkIn, false));
+            $status = Attendance::STATUS_LATE_TL;
+            $requiredCompensationMinutes = 0;
 
-            if ($lateMinutes <= self::TOLERANCE_MINUTES) {
-                // 1 to 15 minutes late: In tolerance, no deduction, but must compensate at checkout
-                $status = Attendance::STATUS_TOLERANCE;
-                $tlCategory = Attendance::TL_NONE;
-                $deductionPercentage = self::DEDUCTION_TOLERANCE;
-                $requiredCompensationMinutes = $lateMinutes;
-                $statusLabel = "Terlambat dalam Toleransi ({$lateMinutes} Menit)";
-                $notes = "Terlambat {$lateMinutes} menit dalam masa toleransi 15 menit. Wajib mengganti jam kepulangan {$lateMinutes} menit lebih lama.";
+            if ($checkIn->lessThan($thresholds['tl_2_start'])) {
+                $tlCategory = Attendance::TL_1;
+                $deductionPercentage = self::DEDUCTION_TL_1;
+                $statusLabel = "Terlambat TL 1 ({$lateMinutes} Menit)";
+                $notes = "Keterlambatan {$lateMinutes} menit masuk kategori TL 1.";
+            } elseif ($checkIn->lessThan($thresholds['tl_3_start'])) {
+                $tlCategory = Attendance::TL_2;
+                $deductionPercentage = self::DEDUCTION_TL_2;
+                $statusLabel = "Terlambat TL 2 ({$lateMinutes} Menit)";
+                $notes = "Keterlambatan {$lateMinutes} menit masuk kategori TL 2.";
             } else {
-                // > 15 minutes late: TL Category with percentage deduction
-                $status = Attendance::STATUS_LATE_TL;
-                $requiredCompensationMinutes = 0;
-
-                if ($lateMinutes <= self::TL_1_MAX_MINUTES) {
-                    $tlCategory = Attendance::TL_1;
-                    $deductionPercentage = self::DEDUCTION_TL_1;
-                    $statusLabel = "Terlambat TL 1 ({$lateMinutes} Menit)";
-                    $notes = "Keterlambatan {$lateMinutes} menit masuk kategori TL 1 (Potongan 0,5%).";
-                } elseif ($lateMinutes <= self::TL_2_MAX_MINUTES) {
-                    $tlCategory = Attendance::TL_2;
-                    $deductionPercentage = self::DEDUCTION_TL_2;
-                    $statusLabel = "Terlambat TL 2 ({$lateMinutes} Menit)";
-                    $notes = "Keterlambatan {$lateMinutes} menit masuk kategori TL 2 (Potongan 1,0%).";
-                } else {
-                    $tlCategory = Attendance::TL_3;
-                    $deductionPercentage = self::DEDUCTION_TL_3;
-                    $statusLabel = "Terlambat TL 3 ({$lateMinutes} Menit)";
-                    $notes = "Keterlambatan {$lateMinutes} menit masuk kategori TL 3 (Potongan 1,5%).";
-                }
+                $tlCategory = Attendance::TL_3;
+                $deductionPercentage = self::DEDUCTION_TL_3;
+                $statusLabel = "Terlambat TL 3 ({$lateMinutes} Menit)";
+                $notes = "Keterlambatan {$lateMinutes} menit masuk kategori TL 3.";
             }
         }
 
@@ -139,6 +143,23 @@ class AttendanceCalculationService
     }
 
     /**
+     * Resolve the official scheduled check-out timestamp (WIB) for an attendance record.
+     */
+    public function getScheduledEndTime(Attendance $attendance): Carbon
+    {
+        $position = $attendance->position;
+        $dateStr = $attendance->date instanceof CarbonInterface
+            ? $attendance->date->toDateString()
+            : (string) $attendance->date;
+
+        if ($attendance->shift_type === Attendance::SHIFT_SECURITY_NIGHT || $position->is_overnight) {
+            return Carbon::parse($dateStr, 'Asia/Jakarta')->addDay()->setTimeFromTimeString($position->default_end_time);
+        }
+
+        return Carbon::parse($dateStr, 'Asia/Jakarta')->setTimeFromTimeString($position->default_end_time);
+    }
+
+    /**
      * Calculate check-out rules, tolerance replacement verification, and early leave (PSW) detection (FR-207, FR-208 / US-305).
      *
      * @return array{
@@ -156,18 +177,7 @@ class AttendanceCalculationService
     public function calculateCheckOut(Attendance $attendance, CarbonInterface $checkOutTime): array
     {
         $checkOut = Carbon::instance($checkOutTime)->timezone('Asia/Jakarta');
-        $position = $attendance->position;
-
-        $dateStr = $attendance->date instanceof CarbonInterface
-            ? $attendance->date->toDateString()
-            : (string) $attendance->date;
-
-        // Determine schedule end in Asia/Jakarta timezone
-        if ($attendance->shift_type === Attendance::SHIFT_SECURITY_NIGHT || $position->is_overnight) {
-            $scheduleEnd = Carbon::parse($dateStr, 'Asia/Jakarta')->addDay()->setTimeFromTimeString($position->default_end_time);
-        } else {
-            $scheduleEnd = Carbon::parse($dateStr, 'Asia/Jakarta')->setTimeFromTimeString($position->default_end_time);
-        }
+        $scheduleEnd = $this->getScheduledEndTime($attendance);
 
         $requiredMinutes = (int) $attendance->required_compensation_minutes;
         $targetEnd = $scheduleEnd->copy()->addMinutes($requiredMinutes);
@@ -232,5 +242,39 @@ class AttendanceCalculationService
         }
 
         return Attendance::SHIFT_NORMAL;
+    }
+
+    /**
+     * Resolve exact TL tier cutoff timestamps on the work date for a position.
+     *
+     * @return array{tl_1_start: Carbon, tl_2_start: Carbon, tl_3_start: Carbon}
+     */
+    public function resolveTlThresholds(Position $position, string $shiftType, Carbon $workDate): array
+    {
+        $group = $this->resolveTlGroup($position, $shiftType);
+        $cutoffs = self::TL_GROUP_CUTOFFS[$group] ?? self::TL_GROUP_CUTOFFS['STANDARD'];
+
+        return [
+            'tl_1_start' => $workDate->copy()->setTime(...$cutoffs['tl_1']),
+            'tl_2_start' => $workDate->copy()->setTime(...$cutoffs['tl_2']),
+            'tl_3_start' => $workDate->copy()->setTime(...$cutoffs['tl_3']),
+        ];
+    }
+
+    /**
+     * Resolve the TL policy group key for a position.
+     */
+    private function resolveTlGroup(Position $position, string $shiftType): string
+    {
+        if ($position->tl_group && isset(self::TL_GROUP_CUTOFFS[$position->tl_group])) {
+            return $position->tl_group;
+        }
+
+        return match (true) {
+            $shiftType === Attendance::SHIFT_SECURITY_NIGHT => 'SECURITY_NIGHT',
+            $shiftType === Attendance::SHIFT_SECURITY_DAY => 'SECURITY_DAY',
+            $position->code === 'OB' => 'OB',
+            default => 'STANDARD',
+        };
     }
 }

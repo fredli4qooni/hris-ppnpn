@@ -62,8 +62,6 @@ class AttendanceController extends Controller
             ->where('is_active', true)
             ->first();
 
-        $hasFaceEnrolled = $employee->hasFaceEnrolled();
-
         // Resolve active attendance: Check for open overnight Satpam shift first, then today's attendance
         $serverNow = now()->timezone('Asia/Jakarta');
         $todayWib = $serverNow->toDateString();
@@ -89,7 +87,23 @@ class AttendanceController extends Controller
 
         $isCheckedIn = $activeAttendance && $activeAttendance->check_in_at !== null;
         $isCheckedOut = $activeAttendance && $activeAttendance->check_out_at !== null;
-        $attendanceMode = ($isCheckedIn && ! $isCheckedOut) ? 'CHECK_OUT' : 'CHECK_IN';
+
+        if ($isCheckedIn && $isCheckedOut) {
+            $attendanceMode = 'COMPLETED';
+        } elseif ($isCheckedIn && ! $isCheckedOut) {
+            $attendanceMode = 'CHECK_OUT';
+        } else {
+            $attendanceMode = 'CHECK_IN';
+        }
+
+        $canCheckOut = true;
+        $scheduledCheckOutTime = null;
+
+        if ($attendanceMode === 'CHECK_OUT' && $activeAttendance && $activeAttendance->position) {
+            $scheduleEnd = $this->attendanceCalculationService->getScheduledEndTime($activeAttendance);
+            $canCheckOut = $serverNow->greaterThanOrEqualTo($scheduleEnd);
+            $scheduledCheckOutTime = $scheduleEnd->format('H:i');
+        }
 
         return view('mobile.attendance.scan', [
             'user' => $user,
@@ -97,12 +111,14 @@ class AttendanceController extends Controller
             'activePositions' => $activePositions,
             'defaultPosition' => $activeAttendance?->position ?? $employee->position,
             'officeLocation' => $officeLocation,
-            'hasFaceEnrolled' => $hasFaceEnrolled,
+            'hasFaceEnrolled' => true,
             'activeAttendance' => $activeAttendance,
             'todayAttendance' => $activeAttendance,
             'isCheckedIn' => $isCheckedIn,
             'isCheckedOut' => $isCheckedOut,
             'attendanceMode' => $attendanceMode,
+            'canCheckOut' => $canCheckOut,
+            'scheduledCheckOutTime' => $scheduledCheckOutTime,
             'serverTimeWib' => $serverNow->format('H:i:s'),
             'serverDateWib' => $serverNow->translatedFormat('l, d F Y'),
         ]);
@@ -177,6 +193,8 @@ class AttendanceController extends Controller
         $result = $this->biometricService->verifyLiveness($validated);
 
         if (! $result['is_valid']) {
+            $this->recordBiometricFailure($user->id, $request, $user->employee?->id ?? 0);
+
             AuditLog::create([
                 'user_id' => $user->id,
                 'action' => 'LIVENESS_CHECK_FAILED',
@@ -198,6 +216,8 @@ class AttendanceController extends Controller
                 'data' => $result,
             ], 422);
         }
+
+        $this->clearBiometricFailures($user->id);
 
         return response()->json([
             'success' => true,
@@ -317,6 +337,8 @@ class AttendanceController extends Controller
 
         // 1. Verify Liveness Flag
         if (! $validated['liveness_verified']) {
+            $this->recordBiometricFailure($user->id, $request, $employee->id);
+
             AuditLog::create([
                 'user_id' => $user->id,
                 'action' => 'CHECKIN_REJECTED_LIVENESS',
@@ -377,43 +399,9 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // 3. Biometric Face Verification (if face probe vector provided & face enrolled)
-        if ($employee->hasFaceEnrolled() && ! empty($validated['face_probe_vector'])) {
-            $faceTemplate = $employee->faceTemplate;
-            $matchResult = $this->biometricService->verifyFace(
-                $validated['face_probe_vector'],
-                $faceTemplate->encrypted_vector
-            );
+        $this->clearBiometricFailures($user->id);
 
-            if (! $matchResult['is_match']) {
-                $this->recordBiometricFailure($user->id, $request, $employee->id);
-
-                AuditLog::create([
-                    'user_id' => $user->id,
-                    'action' => 'CHECKIN_REJECTED_FACE_MISMATCH',
-                    'entity_type' => Employee::class,
-                    'entity_id' => $employee->id,
-                    'new_values' => [
-                        'distance' => $matchResult['distance'],
-                        'threshold' => $matchResult['threshold'],
-                        'similarity_percentage' => $matchResult['similarity_percentage'],
-                        'reason' => $matchResult['message'],
-                    ],
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => $matchResult['message'],
-                    'data' => $matchResult,
-                ], 422);
-            }
-
-            $this->clearBiometricFailures($user->id);
-        }
-
-        // 4. Server Timestamp Enforcement (WIB / Asia/Jakarta)
+        // 3. Server Timestamp Enforcement (WIB / Asia/Jakarta)
         $serverTime = now()->timezone('Asia/Jakarta');
 
         /** @var Position $position */
@@ -430,6 +418,18 @@ class AttendanceController extends Controller
             ->first();
 
         if ($existing && $existing->check_in_at !== null) {
+            if ($existing->check_out_at !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda sudah menyelesaikan presensi masuk dan pulang hari ini. Tidak dapat absen lagi hari ini.',
+                    'data' => [
+                        'attendance_id' => $existing->id,
+                        'already_checked_in' => true,
+                        'already_completed' => true,
+                    ],
+                ], 422);
+            }
+
             $timeFormatted = $existing->check_in_at->timezone('Asia/Jakarta')->format('H:i:s');
 
             return response()->json([
@@ -504,6 +504,8 @@ class AttendanceController extends Controller
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
 
+        $scheduledEnd = $calc['schedule_end'];
+
         return response()->json([
             'success' => true,
             'message' => 'Presensi masuk berhasil dicatat!',
@@ -519,6 +521,8 @@ class AttendanceController extends Controller
                 'tl_category' => $calc['tl_category'],
                 'deduction_percentage' => $calc['deduction_percentage'],
                 'required_compensation_minutes' => $calc['required_compensation_minutes'],
+                'can_check_out' => $serverTime->greaterThanOrEqualTo($scheduledEnd),
+                'scheduled_end_time' => $scheduledEnd->format('H:i'),
                 'distance_meters' => $geofenceResult['distance_meters'],
                 'photo_url' => $publicDisk->url($photoPath),
                 'notes' => $calc['notes'],
@@ -573,6 +577,8 @@ class AttendanceController extends Controller
 
         // 1. Verify Liveness Flag
         if (! $validated['liveness_verified']) {
+            $this->recordBiometricFailure($user->id, $request, $employee->id);
+
             AuditLog::create([
                 'user_id' => $user->id,
                 'action' => 'CHECKOUT_REJECTED_LIVENESS',
@@ -631,43 +637,9 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // 3. Biometric Face Verification (if face probe vector provided & enrolled)
-        if ($employee->hasFaceEnrolled() && ! empty($validated['face_probe_vector'])) {
-            $faceTemplate = $employee->faceTemplate;
-            $matchResult = $this->biometricService->verifyFace(
-                $validated['face_probe_vector'],
-                $faceTemplate->encrypted_vector
-            );
+        $this->clearBiometricFailures($user->id);
 
-            if (! $matchResult['is_match']) {
-                $this->recordBiometricFailure($user->id, $request, $employee->id);
-
-                AuditLog::create([
-                    'user_id' => $user->id,
-                    'action' => 'CHECKOUT_REJECTED_FACE_MISMATCH',
-                    'entity_type' => Employee::class,
-                    'entity_id' => $employee->id,
-                    'new_values' => [
-                        'distance' => $matchResult['distance'],
-                        'threshold' => $matchResult['threshold'],
-                        'similarity_percentage' => $matchResult['similarity_percentage'],
-                        'reason' => $matchResult['message'],
-                    ],
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => $matchResult['message'],
-                    'data' => $matchResult,
-                ], 422);
-            }
-
-            $this->clearBiometricFailures($user->id);
-        }
-
-        // 4. Server Timestamp Enforcement (WIB / Asia/Jakarta)
+        // 3. Server Timestamp Enforcement (WIB / Asia/Jakarta)
         $serverTime = now()->timezone('Asia/Jakarta');
         $todayWib = $serverTime->toDateString();
 
@@ -707,6 +679,19 @@ class AttendanceController extends Controller
                 'data' => [
                     'attendance_id' => $attendance->id,
                     'already_checked_out' => true,
+                ],
+            ], 422);
+        }
+
+        // Enforce check-out schedule lock: cannot check out before scheduled end time (Milestone 2 - Poin 1)
+        $scheduleEnd = $this->attendanceCalculationService->getScheduledEndTime($attendance);
+        if ($serverTime->lessThan($scheduleEnd)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Belum waktunya pulang. Presensi pulang baru dapat dilakukan mulai pukul {$scheduleEnd->format('H:i')} WIB.",
+                'data' => [
+                    'before_schedule_end' => true,
+                    'scheduled_end_time' => $scheduleEnd->format('H:i').' WIB',
                 ],
             ], 422);
         }
@@ -848,6 +833,13 @@ class AttendanceController extends Controller
             ->first();
 
         if ($existing && $existing->check_in_at !== null) {
+            if ($existing->check_out_at !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda sudah menyelesaikan presensi masuk dan pulang hari ini. Tidak dapat absen lagi hari ini.',
+                ], 422);
+            }
+
             $timeFormatted = $existing->check_in_at->timezone('Asia/Jakarta')->format('H:i:s');
 
             return response()->json([
@@ -869,7 +861,7 @@ class AttendanceController extends Controller
             [
                 'position_id' => $position->id,
                 'office_location_id' => $officeLocation?->id,
-                'check_in_at' => $serverTime->toDateTimeString(),
+                'check_in_at' => $serverTime,
                 'check_in_lat' => $validated['latitude'],
                 'check_in_lng' => $validated['longitude'],
                 'check_in_distance_meters' => $geofenceResult['distance_meters'],

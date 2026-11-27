@@ -91,7 +91,7 @@
             </a>
 
             <!-- Presensi (Sprint 3 Active) -->
-            <a href="{{ route('mobile.attendance') }}" class="flex flex-col items-center py-1 transition {{ request()->routeIs('mobile.attendance*') ? 'text-[#0058A8] font-bold' : 'text-gray-500 hover:text-[#0058A8]' }}">
+            <a href="{{ route('mobile.attendance') }}" class="flex flex-col items-center py-1 transition {{ request()->routeIs('mobile.attendance') ? 'text-[#0058A8] font-bold' : 'text-gray-500 hover:text-[#0058A8]' }}">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
                 <span class="text-[10px]">Presensi</span>
             </a>

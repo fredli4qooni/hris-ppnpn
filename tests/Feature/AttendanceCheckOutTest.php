@@ -164,19 +164,20 @@ class AttendanceCheckOutTest extends TestCase
      */
     public function test_check_out_with_tolerance_compensation_fully_paid(): void
     {
-        // 1. Check-in 10 minutes late at 07:10:00 (Driver schedule 07:00 - 18:00).
-        // Tolerance requires +10 minutes at checkout -> target: 18:10:00.
-        Carbon::setTestNow(Carbon::parse('2026-11-18 07:10:00', 'Asia/Jakarta'));
-        $this->actingAs($this->karyawanUser)
-            ->postJson('/mobile/attendance/check-in', [
-                'position_id' => $this->driverPosition->id,
-                'latitude' => (float) $this->office->latitude,
-                'longitude' => (float) $this->office->longitude,
-                'liveness_verified' => true,
-                'face_probe_vector' => $this->sampleFaceVector,
-                'photo' => $this->samplePhotoBase64,
-            ])
-            ->assertOk();
+        // 1. Seed a tolerance attendance requiring +10 minutes compensation (Driver schedule 07:00 - 18:00 -> target: 18:10:00).
+        Attendance::create([
+            'employee_id' => $this->employee->id,
+            'position_id' => $this->driverPosition->id,
+            'office_location_id' => $this->office->id,
+            'date' => '2026-11-18',
+            'shift_type' => Attendance::SHIFT_NORMAL,
+            'check_in_at' => Carbon::parse('2026-11-18 07:10:00', 'Asia/Jakarta'),
+            'status' => Attendance::STATUS_TOLERANCE,
+            'late_minutes' => 10,
+            'required_compensation_minutes' => 10,
+            'tl_category' => Attendance::TL_NONE,
+            'deduction_percentage' => 0.00,
+        ]);
 
         // 2. Check-out at 18:12:00 (past 18:10:00 target)
         Carbon::setTestNow(Carbon::parse('2026-11-18 18:12:00', 'Asia/Jakarta'));
@@ -209,18 +210,20 @@ class AttendanceCheckOutTest extends TestCase
      */
     public function test_check_out_with_tolerance_compensation_shortfall(): void
     {
-        // 1. Check-in 10 minutes late at 07:10:00 (target end: 18:10:00)
-        Carbon::setTestNow(Carbon::parse('2026-11-18 07:10:00', 'Asia/Jakarta'));
-        $this->actingAs($this->karyawanUser)
-            ->postJson('/mobile/attendance/check-in', [
-                'position_id' => $this->driverPosition->id,
-                'latitude' => (float) $this->office->latitude,
-                'longitude' => (float) $this->office->longitude,
-                'liveness_verified' => true,
-                'face_probe_vector' => $this->sampleFaceVector,
-                'photo' => $this->samplePhotoBase64,
-            ])
-            ->assertOk();
+        // 1. Seed a tolerance attendance requiring +10 minutes compensation (target end: 18:10:00).
+        Attendance::create([
+            'employee_id' => $this->employee->id,
+            'position_id' => $this->driverPosition->id,
+            'office_location_id' => $this->office->id,
+            'date' => '2026-11-18',
+            'shift_type' => Attendance::SHIFT_NORMAL,
+            'check_in_at' => Carbon::parse('2026-11-18 07:10:00', 'Asia/Jakarta'),
+            'status' => Attendance::STATUS_TOLERANCE,
+            'late_minutes' => 10,
+            'required_compensation_minutes' => 10,
+            'tl_category' => Attendance::TL_NONE,
+            'deduction_percentage' => 0.00,
+        ]);
 
         // 2. Check-out at 18:04:00 (after normal 18:00, but before 18:10 target -> shortfall 6 mins)
         Carbon::setTestNow(Carbon::parse('2026-11-18 18:04:00', 'Asia/Jakarta'));
@@ -248,9 +251,9 @@ class AttendanceCheckOutTest extends TestCase
     }
 
     /**
-     * Test early leave before schedule end is detected as PSW (Pulang Sebelum Waktunya).
+     * Test check-out before schedule end is rejected because it is not yet time to go home (Milestone 2 - Poin 1).
      */
-    public function test_check_out_before_schedule_end_detected_as_psw(): void
+    public function test_check_out_before_schedule_end_is_rejected(): void
     {
         // 1. Check-in on time at 06:55
         Carbon::setTestNow(Carbon::parse('2026-11-18 06:55:00', 'Asia/Jakarta'));
@@ -260,36 +263,31 @@ class AttendanceCheckOutTest extends TestCase
                 'latitude' => (float) $this->office->latitude,
                 'longitude' => (float) $this->office->longitude,
                 'liveness_verified' => true,
-                'face_probe_vector' => $this->sampleFaceVector,
                 'photo' => $this->samplePhotoBase64,
             ])
             ->assertOk();
 
-        // 2. Check-out at 17:15:00 (schedule ends at 18:00 -> 45 minutes early)
+        // 2. Attempt check-out at 17:15:00 (schedule ends at 18:00 -> must be rejected)
         Carbon::setTestNow(Carbon::parse('2026-11-18 17:15:00', 'Asia/Jakarta'));
         $response = $this->actingAs($this->karyawanUser)
             ->postJson('/mobile/attendance/check-out', [
                 'latitude' => (float) $this->office->latitude,
                 'longitude' => (float) $this->office->longitude,
                 'liveness_verified' => true,
-                'face_probe_vector' => $this->sampleFaceVector,
                 'photo' => $this->samplePhotoBase64,
             ]);
 
-        $response->assertOk();
+        $response->assertStatus(422);
         $response->assertJson([
-            'success' => true,
+            'success' => false,
             'data' => [
-                'check_out_status' => 'PSW',
-                'is_early_leave' => true,
-                'early_leave_minutes' => 45,
+                'before_schedule_end' => true,
+                'scheduled_end_time' => '18:00 WIB',
             ],
         ]);
 
         $attendance = Attendance::where('employee_id', $this->employee->id)->first();
-        $this->assertEquals('PSW', $attendance->check_out_status);
-        $this->assertEquals(45, $attendance->early_leave_minutes);
-        $this->assertTrue($attendance->isPsw());
+        $this->assertNull($attendance->check_out_at);
     }
 
     /**

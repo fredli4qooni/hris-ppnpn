@@ -9,7 +9,7 @@
                     </div>
                     <div>
                         <h2 class="text-sm font-bold text-gray-900">Permohonan Izin & Cuti</h2>
-                        <p class="text-[11px] text-gray-500">Persetujuan Berjenjang 2 Tingkat (Two-Tier)</p>
+                        <p class="text-[11px] text-gray-500">Persetujuan Supervisor & Atasan</p>
                     </div>
                 </div>
                 <a 

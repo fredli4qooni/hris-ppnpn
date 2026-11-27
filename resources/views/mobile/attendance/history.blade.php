@@ -1,8 +1,11 @@
 <x-layouts.mobile title="Riwayat Presensi">
     <div 
         x-data="{
+            viewMode: 'calendar',
             showDetailModal: false,
             selectedItem: null,
+            showKpiModal: false,
+            kpiModalType: null,
             openDetail(item) {
                 this.selectedItem = item;
                 this.showDetailModal = true;
@@ -10,12 +13,20 @@
             closeDetail() {
                 this.showDetailModal = false;
                 this.selectedItem = null;
+            },
+            openKpiModal(type) {
+                this.kpiModalType = type;
+                this.showKpiModal = true;
+            },
+            closeKpiModal() {
+                this.showKpiModal = false;
+                this.kpiModalType = null;
             }
         }"
         class="space-y-4"
     >
         <!-- Page Header & Period Navigation -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-4 space-y-3">
             <div class="flex items-center justify-between border-b border-gray-100 pb-3">
                 <div class="flex items-center space-x-2.5">
                     <div class="w-8 h-8 rounded-xl bg-blue-50 text-[#0058A8] flex items-center justify-center font-bold shrink-0">
@@ -23,8 +34,28 @@
                     </div>
                     <div>
                         <h2 class="text-sm font-bold text-gray-900 leading-tight">Riwayat Presensi</h2>
-                        <span class="text-[11px] text-gray-400 font-medium">Log Kehadiran & Rekapitulasi</span>
+                        <span class="text-[11px] text-gray-400 font-medium">Rekap Kehadiran</span>
                     </div>
+                </div>
+
+                <!-- View Switcher: Kalender / Daftar -->
+                <div class="inline-flex bg-gray-100 p-0.5 rounded-xl border border-gray-200/70">
+                    <button 
+                        type="button" 
+                        @click="viewMode = 'calendar'"
+                        :class="viewMode === 'calendar' ? 'bg-white text-[#0058A8] shadow-xs font-bold' : 'text-gray-500 hover:text-gray-800 font-medium'"
+                        class="px-2.5 py-1 rounded-lg text-[11px] transition cursor-pointer"
+                    >
+                        Kalender
+                    </button>
+                    <button 
+                        type="button" 
+                        @click="viewMode = 'list'"
+                        :class="viewMode === 'list' ? 'bg-white text-[#0058A8] shadow-xs font-bold' : 'text-gray-500 hover:text-gray-800 font-medium'"
+                        class="px-2.5 py-1 rounded-lg text-[11px] transition cursor-pointer"
+                    >
+                        Daftar
+                    </button>
                 </div>
             </div>
 
@@ -71,6 +102,82 @@
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 </a>
+            </div>
+        </div>
+
+        <!-- Interactive Monthly Calendar View (Default) -->
+        <div x-show="viewMode === 'calendar'" class="bg-white rounded-3xl shadow-sm border border-gray-100 p-3.5 space-y-3">
+            <!-- Day of Week Headers -->
+            <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold tracking-wider pb-1 border-b border-gray-100">
+                <div class="text-gray-500">SEN</div>
+                <div class="text-gray-500">SEL</div>
+                <div class="text-gray-500">RAB</div>
+                <div class="text-gray-500">KAM</div>
+                <div class="text-gray-500">JUM</div>
+                <div class="text-rose-500">SAB</div>
+                <div class="text-rose-500">MIN</div>
+            </div>
+
+            <!-- Calendar 7-Column Grid -->
+            <div class="grid grid-cols-7 gap-1.5">
+                @for($e = 0; $e < $leadingEmptyCells; $e++)
+                    <div class="min-h-[60px]"></div>
+                @endfor
+
+                @foreach($calendarDays as $cell)
+                    @php
+                        $cellClasses = match($cell['state']) {
+                            'on_time' => 'bg-emerald-50/90 border-emerald-200 hover:border-emerald-400',
+                            'tolerance' => 'bg-amber-50/90 border-amber-300 hover:border-amber-500',
+                            'late' => 'bg-rose-50/90 border-rose-300 hover:border-rose-500',
+                            default => 'bg-white border-gray-100',
+                        };
+                        $todayRing = $cell['is_today'] ? 'ring-2 ring-[#0058A8] border-[#0058A8]' : '';
+                        $inColor = match($cell['state']) {
+                            'on_time' => 'text-emerald-700',
+                            'tolerance' => 'text-amber-700',
+                            'late' => 'text-rose-600',
+                            default => 'text-gray-300',
+                        };
+                    @endphp
+
+                    @if($cell['attendance'])
+                        <button 
+                            type="button"
+                            @click="openDetail({{ json_encode($cell['attendance']) }})"
+                            class="min-h-[60px] p-1 rounded-xl border {{ $cellClasses }} {{ $todayRing }} flex flex-col items-center justify-between text-center transition cursor-pointer shadow-2xs"
+                        >
+                            <span class="text-xs font-extrabold leading-none {{ $cell['is_today'] ? 'text-[#0058A8]' : ($cell['is_weekend'] ? 'text-rose-600' : 'text-gray-800') }}">
+                                {{ $cell['day'] }}
+                            </span>
+                            <div class="w-full space-y-0.5 leading-none mt-1">
+                                <div class="text-[9px] font-bold font-mono {{ $inColor }}">
+                                    {{ $cell['check_in_short'] }}
+                                </div>
+                                <div class="text-[9px] font-medium font-mono text-gray-500">
+                                    {{ $cell['check_out_short'] }}
+                                </div>
+                            </div>
+                        </button>
+                    @else
+                        <div class="min-h-[60px] p-1 rounded-xl border {{ $cellClasses }} {{ $todayRing }} flex flex-col items-center justify-between text-center">
+                            <span class="text-xs font-bold leading-none {{ $cell['is_today'] ? 'text-[#0058A8]' : ($cell['is_weekend'] ? 'text-rose-500' : 'text-gray-700') }}">
+                                {{ $cell['day'] }}
+                            </span>
+                            <span class="text-[10px] text-gray-300 font-medium leading-none mb-1.5">-</span>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+
+            <!-- Compact Calendar Legend & Hint -->
+            <div class="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-[10px] text-gray-500">
+                <div class="flex items-center gap-2.5">
+                    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Tepat</span>
+                    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>Toleransi</span>
+                    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>TL/PSW</span>
+                </div>
+                <span class="text-[10px] text-[#0058A8] font-medium">Ketuk tanggal untuk swafoto</span>
             </div>
         </div>
 
@@ -126,9 +233,15 @@
                     <span class="text-xl font-extrabold text-amber-800">{{ $summary['tolerance_count'] }}</span>
                     <span class="text-[11px] text-gray-500 font-medium ml-0.5">Hari</span>
                 </div>
-                <div class="mt-1 text-[10px] text-amber-700">
-                    Lunas: <span class="font-bold text-emerald-700">{{ $summary['tolerance_compensated_count'] }}</span> &bull; 
-                    Belum: <span class="font-bold text-amber-800">{{ $summary['tolerance_uncompensated_count'] }}</span>
+                <div class="mt-1 flex justify-end">
+                    <button 
+                        type="button" 
+                        @click="openKpiModal('tolerance')" 
+                        class="text-[11px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-0.5 cursor-pointer"
+                    >
+                        <span>Detail</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
                 </div>
             </div>
 
@@ -147,51 +260,21 @@
                     <span class="text-xl font-extrabold text-rose-700">{{ $summary['psw_count'] }}</span>
                     <span class="text-[11px] text-gray-500 font-medium">PSW</span>
                 </div>
-                <div class="mt-1 text-[10px] text-rose-700">
-                    TL1: {{ $summary['tl_1_count'] }} &bull; TL2: {{ $summary['tl_2_count'] }} &bull; TL3: {{ $summary['tl_3_count'] }}
+                <div class="mt-1 flex justify-end">
+                    <button 
+                        type="button" 
+                        @click="openKpiModal('late')" 
+                        class="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-0.5 cursor-pointer"
+                    >
+                        <span>Detail</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
                 </div>
             </div>
-        </div>
-
-        <!-- Real-time Deduction Transparency Card (FR-307) -->
-        <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-3">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2.5">
-                    <div class="w-8 h-8 rounded-xl bg-blue-50 text-[#0058A8] flex items-center justify-center shrink-0">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <div>
-                        <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">Akumulasi 1 (Lampiran IV SPK)</span>
-                        <h4 class="font-bold text-xs text-gray-900">Transparansi Potongan Honor</h4>
-                    </div>
-                </div>
-                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border {{ $summary['total_deduction_percentage'] > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200' }}">
-                    {{ $summary['total_deduction_percentage'] > 0 ? 'Kena Potongan' : 'Nihil Potongan' }}
-                </span>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 pt-2.5 border-t border-gray-100">
-                <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                    <span class="text-[10px] text-gray-500 font-medium block">Total Akumulasi TL</span>
-                    <div class="text-base font-extrabold font-mono text-gray-900 mt-0.5">
-                        {{ number_format($summary['total_deduction_percentage'], 2, ',', '.') }}%
-                    </div>
-                </div>
-                <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                    <span class="text-[10px] text-gray-500 font-medium block">Estimasi Potongan</span>
-                    <div class="text-base font-extrabold font-mono {{ $summary['estimated_deduction_amount'] > 0 ? 'text-amber-700' : 'text-emerald-700' }} mt-0.5">
-                        Rp {{ number_format($summary['estimated_deduction_amount'], 0, ',', '.') }}
-                    </div>
-                </div>
-            </div>
-
-            <p class="text-[10px] text-gray-500 leading-relaxed border-t border-gray-100 pt-2.5">
-                Potongan dihitung secara khusus berdasarkan keterlambatan masuk, dengan ketentuan TL 1 sebesar 0,5%, TL 2 sebesar 1,0%, dan TL 3 sebesar 1,5%, sesuai Lampiran IV SPK. Perhitungan ini terpisah dari poin pelanggaran supervisor.
-            </p>
         </div>
 
         <!-- Attendance Day Records Feed (FR-211) -->
-        <div class="space-y-3">
+        <div x-show="viewMode === 'list'" x-cloak class="space-y-3">
             <div class="flex items-center justify-between px-1">
                 <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider">
                     Daftar Kehadiran Harian ({{ $attendances->count() }})
@@ -208,7 +291,7 @@
                     <div>
                         <h4 class="text-sm font-bold text-gray-900">Belum Ada Catatan Presensi</h4>
                         <p class="text-xs text-gray-500 mt-1 max-w-xs mx-auto leading-relaxed">
-                            Tidak ditemukan rekaman presensi pada bulan {{ $monthName }} {{ $selectedYear }}. Silakan periksa bulan lain atau lakukan presensi.
+                            Tidak ada data presensi pada bulan {{ $monthName }} {{ $selectedYear }}.
                         </p>
                     </div>
                     <div class="pt-2">
@@ -234,7 +317,7 @@
                                 $inStatusLabel = 'Toleransi (+'.$att->late_minutes.'m)';
                             } elseif ($att->isLateTl()) {
                                 $inStatusBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
-                                $inStatusLabel = $att->tl_category . ' (-' . $att->deduction_percentage . '%)';
+                                $inStatusLabel = $att->tl_category . ' (+'.$att->late_minutes.'m)';
                             }
 
                             // Status Pulang Formatting
@@ -442,9 +525,9 @@
                         <span class="text-gray-500">Kewajiban Penggantian</span>
                         <span class="font-bold text-amber-700" x-text="selectedItem?.required_compensation_minutes + ' Menit'"></span>
                     </div>
-                    <div class="flex items-center justify-between" x-show="selectedItem?.deduction_percentage > 0">
-                        <span class="text-gray-500">Potongan Keterlambatan</span>
-                        <span class="font-bold text-rose-600" x-text="selectedItem?.deduction_percentage + '% (' + selectedItem?.tl_category + ')'"></span>
+                    <div class="flex items-center justify-between" x-show="selectedItem?.tl_category && selectedItem?.tl_category !== 'NONE'">
+                        <span class="text-gray-500">Kategori Keterlambatan</span>
+                        <span class="font-bold text-rose-600" x-text="selectedItem?.tl_category"></span>
                     </div>
                     <div class="flex items-center justify-between" x-show="selectedItem?.check_out_status">
                         <span class="text-gray-500">Status Kepulangan</span>
@@ -470,8 +553,8 @@
 
                 <!-- Notes Banner -->
                 <div class="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-xs text-blue-900 leading-relaxed">
-                    <span class="font-bold block text-[11px] text-blue-950">Catatan Sistem Presensi:</span>
-                    <span x-text="selectedItem?.notes || 'Presensi terverifikasi resmi oleh sistem biometrik Kemenkeu.'"></span>
+                    <span class="font-bold block text-[11px] text-blue-950">Catatan:</span>
+                    <span x-text="selectedItem?.notes || 'Presensi tercatat.'"></span>
                 </div>
 
                 <!-- Close Button -->
@@ -481,6 +564,85 @@
                     class="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition cursor-pointer"
                 >
                     Tutup Rincian
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Breakdown Modal Dialog (Toleransi & TL/PSW) -->
+        <div 
+            x-show="showKpiModal" 
+            x-cloak 
+            class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+            @keydown.escape.window="closeKpiModal()"
+        >
+            <div 
+                class="bg-white rounded-3xl max-w-xs w-full p-5 space-y-4 shadow-2xl border border-gray-100 transform transition-all"
+                @click.away="closeKpiModal()"
+            >
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div>
+                        <h4 class="font-bold text-gray-900 text-sm" x-text="kpiModalType === 'tolerance' ? 'Detail Toleransi' : 'Detail Terlambat & PSW'">Detail</h4>
+                        <span class="text-[11px] text-gray-400 font-medium">{{ $monthName }} {{ $selectedYear }}</span>
+                    </div>
+                    <button 
+                        type="button" 
+                        @click="closeKpiModal()" 
+                        class="w-7 h-7 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center cursor-pointer"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Tolerance Details -->
+                <div x-show="kpiModalType === 'tolerance'" class="space-y-2.5 text-xs">
+                    <div class="bg-amber-50/70 rounded-xl p-3 border border-amber-100 flex items-center justify-between">
+                        <span class="text-amber-900 font-medium">Total Toleransi</span>
+                        <span class="font-extrabold text-amber-900">{{ $summary['tolerance_count'] }} Hari</span>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Lunas Ganti Jam</span>
+                            <span class="font-bold text-emerald-700">{{ $summary['tolerance_compensated_count'] }} Hari</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Belum Ganti Jam</span>
+                            <span class="font-bold text-amber-800">{{ $summary['tolerance_uncompensated_count'] }} Hari</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Late TL & PSW Details -->
+                <div x-show="kpiModalType === 'late'" class="space-y-2.5 text-xs">
+                    <div class="bg-rose-50/70 rounded-xl p-3 border border-rose-100 flex items-center justify-between">
+                        <span class="text-rose-900 font-medium">Total Terlambat / PSW</span>
+                        <span class="font-extrabold text-rose-900">{{ $summary['late_tl_count'] }} TL &bull; {{ $summary['psw_count'] }} PSW</span>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Kategori TL 1</span>
+                            <span class="font-bold text-rose-700">{{ $summary['tl_1_count'] }} Kali</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Kategori TL 2</span>
+                            <span class="font-bold text-rose-700">{{ $summary['tl_2_count'] }} Kali</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-gray-600">Kategori TL 3</span>
+                            <span class="font-bold text-rose-700">{{ $summary['tl_3_count'] }} Kali</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-1.5 border-t border-gray-200">
+                            <span class="text-gray-600">Pulang Cepat (PSW)</span>
+                            <span class="font-bold text-rose-700">{{ $summary['psw_count'] }} Kali</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button 
+                    type="button" 
+                    @click="closeKpiModal()" 
+                    class="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                    Tutup
                 </button>
             </div>
         </div>

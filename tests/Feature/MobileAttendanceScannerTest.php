@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
 use App\Services\BiometricVerificationService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -85,9 +87,9 @@ class MobileAttendanceScannerTest extends TestCase
     }
 
     /**
-     * Test scanner displays warning message if employee face is not yet enrolled.
+     * Test scanner remains accessible even if employee face template is not enrolled (Milestone 1 - Poin 7).
      */
-    public function test_scanner_shows_warning_when_face_is_not_enrolled(): void
+    public function test_scanner_allows_access_without_face_template_enrollment(): void
     {
         // Ensure no face template
         $this->employee->faceTemplate()?->delete();
@@ -96,8 +98,9 @@ class MobileAttendanceScannerTest extends TestCase
             ->get('/mobile/attendance');
 
         $response->assertSuccessful();
-        $response->assertSee('Belum Terdaftar');
-        $response->assertSee('Pendaftaran Biometrik Diperlukan');
+        $response->assertDontSee('Pendaftaran Biometrik Diperlukan');
+        $response->assertSee('Pemindai Biometrik Wajah');
+        $response->assertSee('ellipse');
     }
 
     /**
@@ -221,5 +224,66 @@ class MobileAttendanceScannerTest extends TestCase
             'success' => false,
         ]);
         $this->assertStringContainsString('melebihi batas maksimal 8000 ms', $response->json('message'));
+    }
+
+    /**
+     * Test scanner hides camera and locks check-out when current time is before scheduled end time (Milestone 2 - Poin 1).
+     */
+    public function test_scanner_locks_checkout_before_scheduled_end_time(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-27 11:00:00', 'Asia/Jakarta'));
+
+        $driver = Position::where('code', 'DRIVER')->first();
+
+        Attendance::create([
+            'employee_id' => $this->employee->id,
+            'position_id' => $driver->id,
+            'date' => '2026-11-27',
+            'check_in_at' => Carbon::parse('2026-11-27 06:55:00', 'Asia/Jakarta'),
+            'status' => Attendance::STATUS_ON_TIME,
+            'shift_type' => Attendance::SHIFT_NORMAL,
+        ]);
+
+        $response = $this->actingAs($this->karyawanUser)
+            ->get('/mobile/attendance');
+
+        $response->assertSuccessful();
+        $response->assertSee('Belum Waktunya Pulang');
+        $response->assertSee('18:00 WIB');
+        $response->assertSee('Mode Pulang (Check-out)');
+        $response->assertDontSee('scheduledCheckOutTime: "18:00"', false);
+        $response->assertDontSee('Pilih Posisi Tugas Hari Ini');
+        $response->assertDontSee('Aktifkan Kamera Pulang');
+    }
+
+    /**
+     * Test scanner locks completely when both check-in and check-out are completed for the day (Milestone 2 - Poin 2).
+     */
+    public function test_scanner_locks_entirely_when_day_attendance_is_completed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-27 19:00:00', 'Asia/Jakarta'));
+
+        $driver = Position::where('code', 'DRIVER')->first();
+
+        Attendance::create([
+            'employee_id' => $this->employee->id,
+            'position_id' => $driver->id,
+            'date' => '2026-11-27',
+            'check_in_at' => Carbon::parse('2026-11-27 06:55:00', 'Asia/Jakarta'),
+            'check_out_at' => Carbon::parse('2026-11-27 18:05:00', 'Asia/Jakarta'),
+            'status' => Attendance::STATUS_ON_TIME,
+            'check_out_status' => Attendance::CHECK_OUT_ON_TIME,
+            'shift_type' => Attendance::SHIFT_NORMAL,
+        ]);
+
+        $response = $this->actingAs($this->karyawanUser)
+            ->get('/mobile/attendance');
+
+        $response->assertSuccessful();
+        $response->assertSee('Presensi Hari Ini Selesai');
+        $response->assertSee('06:55 WIB');
+        $response->assertSee('18:05 WIB');
+        $response->assertDontSee('Pilih Posisi Tugas Hari Ini');
+        $response->assertDontSee('Pemindai Biometrik Wajah');
     }
 }

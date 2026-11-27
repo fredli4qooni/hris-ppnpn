@@ -30,13 +30,17 @@
         $isLocked = $payroll['is_locked'];
         $items = $payroll['items'];
         $totals = $payroll['totals'];
+        $employeeOptions = $payroll['employee_options'] ?? [];
+        $activeEmployeeId = $payroll['selected_employee_id'] ?? null;
+        $dailyDetails = $payroll['daily_details'] ?? [];
+        $selectedEmployeeItem = $activeEmployeeId !== null && count($items) === 1 ? $items[0] : null;
     @endphp
 
     <div class="space-y-5">
         <!-- Filter & Navigation Bar -->
         <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs">
             <form method="GET" action="{{ route('filament.admin.pages.manage-monthly-closing') }}" class="flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center space-x-3">
+                <div class="flex flex-wrap items-center gap-3">
                     <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">Pilih Periode:</span>
                     <select name="month" onchange="this.form.submit()" class="tac-select">
                         @foreach(\App\Models\MonthlyPeriodClosing::MONTH_NAMES as $num => $name)
@@ -49,6 +53,25 @@
                             <option value="{{ $y }}" {{ $selectedYear === $y ? 'selected' : '' }}>Tahun {{ $y }}</option>
                         @endforeach
                     </select>
+
+                    <span class="text-xs font-bold text-gray-700 uppercase tracking-wider pl-1">Pegawai:</span>
+                    <select name="employee_id" onchange="this.form.submit()" class="tac-select max-w-[260px]">
+                        <option value="">Semua Pegawai ({{ count($employeeOptions) }} PPNPN)</option>
+                        @foreach($employeeOptions as $opt)
+                            <option value="{{ $opt['id'] }}" {{ $activeEmployeeId === $opt['id'] ? 'selected' : '' }}>
+                                {{ $opt['name'] }} ({{ $opt['employee_code'] }})
+                            </option>
+                        @endforeach
+                    </select>
+
+                    @if($activeEmployeeId !== null)
+                        <a
+                            href="{{ route('filament.admin.pages.manage-monthly-closing', ['month' => $selectedMonth, 'year' => $selectedYear]) }}"
+                            class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-xl transition"
+                        >
+                            Reset Filter
+                        </a>
+                    @endif
 
                     <noscript>
                         <button type="submit" class="px-3.5 py-1.5 bg-[#0058A8] hover:bg-[#004787] text-white text-xs font-bold rounded-xl transition">
@@ -102,15 +125,27 @@
 
         <!-- KPI Summary Metrics Grid -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div class="bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs">
-                <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block">Total Personil</span>
-                <div class="text-xl font-extrabold text-gray-900 mt-1">
-                    {{ $totals['total_employees'] }} <span class="text-xs font-normal text-gray-500">PPNPN</span>
+            @if($selectedEmployeeItem)
+                <div class="bg-blue-50/70 p-3.5 rounded-2xl border border-blue-200 shadow-xs">
+                    <span class="text-[10px] text-[#0058A8] uppercase font-bold tracking-wider block">Kalkulator Per User</span>
+                    <div class="text-sm font-extrabold text-gray-900 mt-1 truncate" title="{{ $selectedEmployeeItem['name'] }}">
+                        {{ $selectedEmployeeItem['name'] }}
+                    </div>
+                    <div class="text-[10px] font-mono text-gray-500 mt-0.5 truncate">
+                        {{ $selectedEmployeeItem['employee_code'] }} &bull; {{ $selectedEmployeeItem['position_name'] }}
+                    </div>
                 </div>
-            </div>
+            @else
+                <div class="bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs">
+                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block">Total Personil</span>
+                    <div class="text-xl font-extrabold text-gray-900 mt-1">
+                        {{ $totals['total_employees'] }} <span class="text-xs font-normal text-gray-500">PPNPN</span>
+                    </div>
+                </div>
+            @endif
 
             <div class="bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs">
-                <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block">Total Gaji Pokok</span>
+                <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block">{{ $selectedEmployeeItem ? 'Gaji Pokok User' : 'Total Gaji Pokok' }}</span>
                 <div class="text-base font-extrabold font-mono text-gray-900 mt-1">
                     Rp {{ number_format($totals['total_base_salary'], 0, ',', '.') }}
                 </div>
@@ -202,12 +237,23 @@
                             <tr class="hover:bg-blue-50/20 transition">
                                 <td class="py-2.5 px-3 text-gray-400 font-mono text-center whitespace-nowrap">{{ $idx + 1 }}</td>
                                 <td class="py-2.5 px-3">
-                                    <div class="font-bold text-gray-900 leading-tight">{{ $row['name'] }}</div>
-                                    <div class="text-[10px] text-gray-500 font-mono flex items-center gap-1.5 mt-0.5 leading-tight">
-                                        <span class="whitespace-nowrap">{{ $row['employee_code'] }}</span>
-                                        <span class="text-gray-300 select-none">&bull;</span>
-                                        <span class="text-[#0058A8] font-semibold truncate">{{ $row['position_name'] }}</span>
-                                    </div>
+                                    <a
+                                        href="{{ route('filament.admin.pages.manage-monthly-closing', ['month' => $selectedMonth, 'year' => $selectedYear, 'employee_id' => $row['employee_id']]) }}"
+                                        class="group block"
+                                        title="Buka kalkulator per user untuk {{ $row['name'] }}"
+                                    >
+                                        <div class="font-bold text-gray-900 group-hover:text-[#0058A8] leading-tight flex items-center gap-1.5">
+                                            <span>{{ $row['name'] }}</span>
+                                            @if($activeEmployeeId === null)
+                                                <span class="text-[10px] font-semibold text-[#0058A8] opacity-75 group-hover:opacity-100">&rarr;</span>
+                                            @endif
+                                        </div>
+                                        <div class="text-[10px] text-gray-500 font-mono flex items-center gap-1.5 mt-0.5 leading-tight">
+                                            <span class="whitespace-nowrap">{{ $row['employee_code'] }}</span>
+                                            <span class="text-gray-300 select-none">&bull;</span>
+                                            <span class="text-[#0058A8] font-semibold truncate">{{ $row['position_name'] }}</span>
+                                        </div>
+                                    </a>
                                 </td>
                                 <td class="py-2.5 px-3 text-right font-mono font-medium text-gray-800 whitespace-nowrap">
                                     Rp {{ number_format($row['base_salary'], 0, ',', '.') }}
@@ -290,5 +336,74 @@
                 </table>
             </div>
         </div>
+
+        @if($selectedEmployeeItem)
+            <!-- Per-User Daily Attendance & Deduction Breakdown -->
+            <div class="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
+                <div class="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                            Rincian Perhitungan Harian: {{ $selectedEmployeeItem['name'] }} ({{ count($dailyDetails) }} Hari)
+                        </h3>
+                        <p class="text-[11px] text-gray-500">
+                            Menampilkan detail keterlambatan harian &amp; potongan Akumulasi 1 untuk {{ $payroll['period_label'] }}
+                        </p>
+                    </div>
+                    <div class="text-[11px] font-mono font-bold text-[#0058A8]">
+                        Gaji Pokok: Rp {{ number_format($selectedEmployeeItem['base_salary'], 0, ',', '.') }}
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-[11px] text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 text-[10px] font-bold text-gray-700 uppercase border-b border-gray-200 whitespace-nowrap">
+                                <th class="py-2.5 px-3">Tanggal</th>
+                                <th class="py-2.5 px-3">Status</th>
+                                <th class="py-2.5 px-3">Kategori TL</th>
+                                <th class="py-2.5 px-3 font-mono">Masuk</th>
+                                <th class="py-2.5 px-3 font-mono">Pulang</th>
+                                <th class="py-2.5 px-3 text-right">Potongan (%)</th>
+                                <th class="py-2.5 px-3 text-right">Potongan (Rp)</th>
+                                <th class="py-2.5 px-3">Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse($dailyDetails as $detail)
+                                <tr class="hover:bg-gray-50/70">
+                                    <td class="py-2 px-3 font-semibold text-gray-900 whitespace-nowrap">{{ $detail['date'] }}</td>
+                                    <td class="py-2 px-3 whitespace-nowrap">{{ $detail['status'] }}</td>
+                                    <td class="py-2 px-3 whitespace-nowrap font-mono {{ $detail['tl_category'] !== 'NONE' ? 'text-rose-700 font-bold' : 'text-gray-400' }}">
+                                        {{ $detail['tl_category'] }}
+                                        @if($detail['late_minutes'] > 0)
+                                            (+{{ $detail['late_minutes'] }}m)
+                                        @endif
+                                    </td>
+                                    <td class="py-2 px-3 font-mono whitespace-nowrap">{{ $detail['check_in_at'] }}</td>
+                                    <td class="py-2 px-3 font-mono whitespace-nowrap">{{ $detail['check_out_at'] }}</td>
+                                    <td class="py-2 px-3 text-right font-mono whitespace-nowrap">
+                                        @if($detail['is_exempted'])
+                                            <span class="text-emerald-700 font-bold">0% (Dispensasi)</span>
+                                        @else
+                                            {{ number_format($detail['deduction_percentage'], 1, ',', '.') }}%
+                                        @endif
+                                    </td>
+                                    <td class="py-2 px-3 text-right font-mono font-bold whitespace-nowrap {{ $detail['deduction_amount'] > 0 ? 'text-rose-700' : 'text-gray-400' }}">
+                                        Rp {{ number_format($detail['deduction_amount'], 0, ',', '.') }}
+                                    </td>
+                                    <td class="py-2 px-3 text-gray-600">{{ $detail['notes'] }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="py-6 text-center text-gray-400">
+                                        Belum ada catatan presensi untuk pegawai ini pada periode {{ $payroll['period_label'] }}.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
     </div>
 </x-filament-panels::page>

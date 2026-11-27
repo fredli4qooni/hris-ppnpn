@@ -200,7 +200,7 @@ class ContractLifecycleAndAlertsTest extends TestCase
         $responseProfile->assertOk();
         $responseProfile->assertSee('Status Masa Kontrak');
         $responseProfile->assertSee('Perlu Perpanjangan (H-15)');
-        $responseProfile->assertSee('Nilai Kontrak Total SPK');
-        $responseProfile->assertSee('38.400.000');
+        $responseProfile->assertDontSee('Nilai Kontrak Total SPK');
+        $responseProfile->assertDontSee('38.400.000');
     }
 }

@@ -118,6 +118,7 @@ class DisciplineLedgerTest extends TestCase
         $response->assertSee('3 Bulan');
         $response->assertSee('Pemisahan Tegas Akumulasi');
         $response->assertSee('Akumulasi 2');
+        $response->assertDontSee('Rp ');
     }
 
     /**

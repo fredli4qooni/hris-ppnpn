@@ -31,10 +31,16 @@ class ManageMonthlyClosing extends Page
 
     public int $selectedMonth;
 
+    public ?int $selectedEmployeeId = null;
+
     public function mount(): void
     {
         $this->selectedYear = (int) request('year', now()->year);
         $this->selectedMonth = (int) request('month', now()->month);
+        $requestedEmployeeId = request('employee_id');
+        $this->selectedEmployeeId = is_numeric($requestedEmployeeId) && (int) $requestedEmployeeId > 0
+            ? (int) $requestedEmployeeId
+            : null;
 
         if ($this->selectedMonth < 1 || $this->selectedMonth > 12) {
             $this->selectedMonth = now()->month;
@@ -58,13 +64,13 @@ class ManageMonthlyClosing extends Page
     }
 
     /**
-     * Get computed payroll data for the currently selected year and month.
+     * Get computed payroll data for the currently selected year, month, and optional employee filter.
      *
      * @return array<string, mixed>
      */
     public function getPayrollData(): array
     {
-        return app(MonthlyClosingService::class)->getPayrollData($this->selectedYear, $this->selectedMonth);
+        return app(MonthlyClosingService::class)->getPayrollData($this->selectedYear, $this->selectedMonth, $this->selectedEmployeeId);
     }
 
     protected function getHeaderActions(): array

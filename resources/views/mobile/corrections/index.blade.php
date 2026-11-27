@@ -9,7 +9,7 @@
                     </div>
                     <div>
                         <h2 class="text-sm font-bold text-gray-900">Koreksi Lupa Absen</h2>
-                        <p class="text-[11px] text-gray-500">Permohonan Pengesahan Kehadiran Dinas (FR-210)</p>
+                        <p class="text-[11px] text-gray-500">Pengajuan Koreksi Kehadiran</p>
                     </div>
                 </div>
                 <a 
@@ -28,7 +28,7 @@
                     <span>Ketentuan Batas Waktu H+2 Kerja:</span>
                 </div>
                 <p class="text-[11px] text-amber-800 leading-relaxed">
-                    Pengajuan koreksi lupa absen hanya dapat dilakukan maksimal <strong>2 hari kerja (H+2)</strong> setelah tanggal kejadian dan wajib disertai lembar ringkasan aktivitas dinas serta bukti pendukung.
+                    Koreksi diajukan maksimal <strong>2 hari kerja (H+2)</strong> setelah kejadian beserta ringkasan aktivitas & bukti.
                 </p>
             </div>
         </div>

@@ -370,4 +370,54 @@ class MonthlyClosingAndExportTest extends TestCase
         $responsePdf = $this->get(route('admin.payroll.export-pdf', ['year' => 2026, 'month' => 11]));
         $responsePdf->assertForbidden();
     }
+
+    public function test_payroll_calculator_supports_per_user_filtering_and_daily_breakdown(): void
+    {
+        $year = 2026;
+        $month = 5;
+
+        Attendance::create([
+            'employee_id' => $this->employee->id,
+            'position_id' => $this->employee->position_id,
+            'office_location_id' => 1,
+            'date' => "{$year}-05-04",
+            'check_in_at' => "{$year}-05-04 07:10:00",
+            'check_out_at' => "{$year}-05-04 18:00:00",
+            'status' => Attendance::STATUS_LATE_TL,
+            'check_out_status' => Attendance::CHECK_OUT_ON_TIME,
+            'late_minutes' => 10,
+            'tl_category' => Attendance::TL_1,
+            'deduction_percentage' => 0.50,
+            'is_compensated' => false,
+            'notes' => 'Keterlambatan 10 menit masuk kategori TL 1.',
+        ]);
+
+        $perUserData = $this->closingService->getPayrollData($year, $month, $this->employee->id);
+
+        $this->assertSame($this->employee->id, $perUserData['selected_employee_id']);
+        $this->assertCount(1, $perUserData['items']);
+        $this->assertGreaterThan(1, count($perUserData['employee_options']));
+        $this->assertSame(1, $perUserData['totals']['total_employees']);
+        $this->assertEquals(3200000.00, $perUserData['totals']['total_base_salary']);
+        $this->assertEquals(16000.00, $perUserData['totals']['total_tl_deduction']);
+        $this->assertEquals(16000.00, $perUserData['totals']['total_deductions_amount']);
+        $this->assertEquals(3184000.00, $perUserData['totals']['total_net_salary']);
+
+        $this->assertCount(1, $perUserData['daily_details']);
+        $this->assertSame('TL_1', $perUserData['daily_details'][0]['tl_category']);
+        $this->assertEquals(16000.00, $perUserData['daily_details'][0]['deduction_amount']);
+
+        // Admin Filament page renders Kalkulator Per User cleanly
+        $response = $this->actingAs($this->adminUser)
+            ->get(route('filament.admin.pages.manage-monthly-closing', [
+                'year' => $year,
+                'month' => $month,
+                'employee_id' => $this->employee->id,
+            ]));
+
+        $response->assertOk();
+        $response->assertSee('Kalkulator Per User');
+        $response->assertSee("Rincian Perhitungan Harian: {$this->employee->full_name}");
+        $response->assertSee('3.184.000');
+    }
 }

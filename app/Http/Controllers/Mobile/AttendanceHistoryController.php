@@ -182,10 +182,48 @@ class AttendanceHistoryController extends Controller
 
         $monthName = self::MONTH_NAMES[$selectedMonth] ?? '';
 
+        $attendancesByDate = $attendances->keyBy(fn (Attendance $att): string => $att->date->toDateString());
+        $leadingEmptyCells = $currentPeriod->dayOfWeekIso - 1;
+        $todayDateString = $nowWib->toDateString();
+
+        $calendarDays = [];
+        for ($day = 1; $day <= $currentPeriod->daysInMonth; $day++) {
+            $dateObj = $currentPeriod->copy()->day($day);
+            $dateKey = $dateObj->toDateString();
+            /** @var Attendance|null $att */
+            $att = $attendancesByDate->get($dateKey);
+
+            $state = 'empty';
+            if ($att) {
+                if ($att->isLateTl() || $att->isPsw()) {
+                    $state = 'late';
+                } elseif ($att->isTolerance()) {
+                    $state = 'tolerance';
+                } else {
+                    $state = 'on_time';
+                }
+            }
+
+            $calendarDays[] = [
+                'day' => $day,
+                'date' => $dateKey,
+                'is_today' => $dateKey === $todayDateString,
+                'is_weekend' => $dateObj->isWeekend(),
+                'attendance' => $att,
+                'check_in_short' => $att?->check_in_at ? $att->check_in_at->timezone('Asia/Jakarta')->format('H:i') : null,
+                'check_out_short' => $att?->check_out_at
+                    ? $att->check_out_at->timezone('Asia/Jakarta')->format('H:i')
+                    : ($att?->check_in_at ? '--:--' : null),
+                'state' => $state,
+            ];
+        }
+
         return view('mobile.attendance.history', [
             'user' => $user,
             'employee' => $employee,
             'attendances' => $attendances,
+            'calendarDays' => $calendarDays,
+            'leadingEmptyCells' => $leadingEmptyCells,
             'summary' => $summary,
             'selectedYear' => $selectedYear,
             'selectedMonth' => $selectedMonth,

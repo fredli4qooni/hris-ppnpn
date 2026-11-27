@@ -7,6 +7,8 @@
             checkInUrl: '{{ route('mobile.attendance.check-in') }}',
             checkOutUrl: '{{ route('mobile.attendance.check-out') }}',
             attendanceMode: '{{ $attendanceMode }}',
+            canCheckOut: {{ $canCheckOut ? 'true' : 'false' }},
+            scheduledCheckOutTime: '{{ $scheduledCheckOutTime ?? '' }}' || null,
             isCheckedIn: {{ $isCheckedIn ? 'true' : 'false' }},
             isCheckedOut: {{ $isCheckedOut ? 'true' : 'false' }},
             defaultPositionId: {{ $defaultPosition?->id ?? 'null' }},
@@ -30,7 +32,7 @@
                     <div>
                         <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">Waktu Terkini</span>
                         <div class="text-sm font-extrabold text-[#0B2A4A] flex items-center gap-1.5 font-mono">
-                            <span x-text="serverTime">--:--:--</span>
+                            <span x-text="serverTime">{{ $serverTimeWib }}</span>
                             <span class="text-[10px] font-bold text-[#0058A8] bg-blue-50 px-1.5 py-0.5 rounded">WIB</span>
                         </div>
                     </div>
@@ -51,22 +53,18 @@
                         <span class="text-[11px] text-gray-500">ID: {{ $employee->employee_code }}</span>
                     </div>
                 </div>
-                @if(! $hasFaceEnrolled)
-                <div>
-                    <span class="inline-flex items-center text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
-                        ⚠ Belum Terdaftar
-                    </span>
-                </div>
-                @else
                 <div>
                     <span 
                         class="inline-flex items-center text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs"
-                        :class="attendanceMode === 'CHECK_OUT' ? 'text-amber-800 bg-amber-50 border-amber-200' : 'text-blue-800 bg-blue-50 border-blue-200'"
+                        :class="{
+                            'text-emerald-800 bg-emerald-50 border-emerald-200': attendanceMode === 'COMPLETED',
+                            'text-amber-800 bg-amber-50 border-amber-200': attendanceMode === 'CHECK_OUT',
+                            'text-blue-800 bg-blue-50 border-blue-200': attendanceMode === 'CHECK_IN'
+                        }"
                     >
-                        <span x-text="attendanceMode === 'CHECK_OUT' ? 'Mode Pulang (Check-out)' : 'Mode Masuk (Check-in)'"></span>
+                        <span x-text="attendanceMode === 'COMPLETED' ? 'Selesai Hari Ini' : (attendanceMode === 'CHECK_OUT' ? 'Mode Pulang (Check-out)' : 'Mode Masuk (Check-in)')">{{ $attendanceMode === 'COMPLETED' ? 'Selesai Hari Ini' : ($attendanceMode === 'CHECK_OUT' ? 'Mode Pulang (Check-out)' : 'Mode Masuk (Check-in)') }}</span>
                     </span>
                 </div>
-                @endif
             </div>
         </div>
 
@@ -87,67 +85,74 @@
             </p>
         </div>
 
-        @if(! $hasFaceEnrolled)
-        <!-- Warning Card If Face Not Enrolled -->
-        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center space-y-3">
-            <div class="w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-800 flex items-center justify-center">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        @if(isset($todayAttendance) && $todayAttendance && $todayAttendance->check_in_at && ! $todayAttendance->check_out_at)
+            @if(! $canCheckOut)
+            <!-- Locked Until Scheduled End Time Banner (Milestone 2 - Poin 1) -->
+            <div class="bg-blue-50/90 border border-blue-200 rounded-2xl p-5 text-center space-y-3 shadow-sm">
+                <div class="w-12 h-12 mx-auto rounded-full bg-blue-100 text-[#0058A8] flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
+                <div class="space-y-1">
+                    <h4 class="font-bold text-gray-900 text-sm">Belum Waktunya Pulang</h4>
+                    <p class="text-xs text-gray-600 leading-relaxed">
+                        Anda sudah absen masuk pukul <strong>{{ $todayAttendance->check_in_at->timezone('Asia/Jakarta')->format('H:i') }} WIB</strong>
+                        ({{ $todayAttendance->position?->name }}).
+                    </p>
+                    <p class="text-xs font-semibold text-[#0058A8]">
+                        Presensi pulang baru dapat dilakukan mulai pukul <strong>{{ $scheduledCheckOutTime }} WIB</strong>.
+                    </p>
+                </div>
+                <a href="{{ route('mobile.home') }}" class="inline-flex items-center justify-center px-4 py-2 bg-white text-gray-700 text-xs font-semibold rounded-xl border border-gray-300 shadow-sm hover:bg-gray-50">
+                    Kembali ke Beranda
+                </a>
             </div>
-            <div>
-                <h4 class="font-bold text-gray-900 text-sm">Pendaftaran Biometrik Diperlukan</h4>
-                <p class="text-xs text-gray-600 mt-1 leading-relaxed">
-                    Sampel biometrik wajah Anda belum terdaftar dalam basis data sistem. Sesuai UU PDP No. 27/2022, silakan hubungi Administrator/Supervisor untuk melakukan perekaman awal sebelum melakukan absensi mandiri.
+            @else
+            <!-- Mode Pulang Active Banner (FR-207) -->
+            <div class="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        Siap Presensi Pulang (Check-out)
+                    </span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                        Masuk: {{ $todayAttendance->check_in_at->timezone('Asia/Jakarta')->format('H:i') }} WIB
+                    </span>
+                </div>
+                <p class="text-xs text-amber-900 leading-relaxed">
+                    Anda bertugas sebagai <strong>{{ $todayAttendance->position?->name }}</strong>.
+                    @if($todayAttendance->isTolerance())
+                        <span class="block mt-0.5 font-medium text-amber-950">
+                            Target kepulangan penggantian toleransi: 
+                            <strong>{{ \Illuminate\Support\Carbon::parse($todayAttendance->date->toDateString(), 'Asia/Jakarta')->setTimeFromTimeString($todayAttendance->position->default_end_time)->addMinutes($todayAttendance->required_compensation_minutes)->format('H:i') }} WIB</strong> 
+                            (+{{ $todayAttendance->required_compensation_minutes }} menit).
+                        </span>
+                    @else
+                        <span class="block mt-0.5 text-amber-800">
+                            Jadwal pulang dinas resmi: <strong>{{ substr($todayAttendance->position->default_end_time, 0, 5) }} WIB</strong>.
+                        </span>
+                    @endif
                 </p>
             </div>
-            <a href="{{ route('mobile.home') }}" class="inline-flex items-center justify-center px-4 py-2 bg-white text-gray-700 text-xs font-semibold rounded-xl border border-gray-300 shadow-sm hover:bg-gray-50">
+            @endif
+        @elseif(isset($todayAttendance) && $todayAttendance && $todayAttendance->check_in_at && $todayAttendance->check_out_at)
+        <!-- Day Completed Banner (Milestone 2 - Poin 2) -->
+        <div class="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-5 text-center space-y-3 shadow-sm">
+            <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <div class="space-y-1">
+                <h4 class="font-bold text-emerald-950 text-sm">Presensi Hari Ini Selesai</h4>
+                <p class="text-xs text-emerald-800 leading-relaxed">
+                    Masuk: <strong>{{ $todayAttendance->check_in_at->timezone('Asia/Jakarta')->format('H:i') }} WIB</strong> &bull;
+                    Pulang: <strong>{{ $todayAttendance->check_out_at->timezone('Asia/Jakarta')->format('H:i') }} WIB</strong>.
+                </p>
+                <p class="text-[11px] text-emerald-700">
+                    Anda telah menyelesaikan presensi hari ini dan tidak dapat absen lagi hingga esok hari.
+                </p>
+            </div>
+            <a href="{{ route('mobile.home') }}" class="inline-flex items-center justify-center px-4 py-2 bg-white text-emerald-800 text-xs font-semibold rounded-xl border border-emerald-300 shadow-sm hover:bg-emerald-50">
                 Kembali ke Beranda
             </a>
-        </div>
-        @else
-
-        @if(isset($todayAttendance) && $todayAttendance && $todayAttendance->check_in_at && ! $todayAttendance->check_out_at)
-        <!-- Mode Pulang Active Banner (FR-207) -->
-        <div class="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Siap Presensi Pulang (Check-out)
-                </span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
-                    Masuk: {{ $todayAttendance->check_in_at->timezone('Asia/Jakarta')->format('H:i') }} WIB
-                </span>
-            </div>
-            <p class="text-xs text-amber-900 leading-relaxed">
-                Anda bertugas sebagai <strong>{{ $todayAttendance->position?->name }}</strong>.
-                @if($todayAttendance->isTolerance())
-                    <span class="block mt-0.5 font-medium text-amber-950">
-                        Target kepulangan penggantian toleransi: 
-                        <strong>{{ \Illuminate\Support\Carbon::parse($todayAttendance->date->toDateString(), 'Asia/Jakarta')->setTimeFromTimeString($todayAttendance->position->default_end_time)->addMinutes($todayAttendance->required_compensation_minutes)->format('H:i') }} WIB</strong> 
-                        (+{{ $todayAttendance->required_compensation_minutes }} menit).
-                    </span>
-                @else
-                    <span class="block mt-0.5 text-amber-800">
-                        Jadwal pulang dinas resmi: <strong>{{ substr($todayAttendance->position->default_end_time, 0, 5) }} WIB</strong>.
-                    </span>
-                @endif
-            </p>
-        </div>
-        @elseif(isset($todayAttendance) && $todayAttendance && $todayAttendance->check_in_at && $todayAttendance->check_out_at)
-        <!-- Day Completed Banner -->
-        <div class="bg-emerald-50/90 border border-emerald-200 rounded-2xl p-4 space-y-2">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Presensi Hari Ini Selesai
-                </span>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
-                    Lengkap
-                </span>
-            </div>
-            <p class="text-xs text-emerald-800 leading-relaxed">
-                Masuk: <strong>{{ $todayAttendance->check_in_at->timezone('Asia/Jakarta')->format('H:i:s') }} WIB</strong> • 
-                Pulang: <strong>{{ $todayAttendance->check_out_at->timezone('Asia/Jakarta')->format('H:i:s') }} WIB</strong>.
-            </p>
         </div>
         @endif
 
@@ -178,7 +183,7 @@
             class="p-4 bg-blue-50/90 border border-blue-200 rounded-2xl flex items-center justify-center gap-3 text-xs text-[#0058A8] shadow-sm"
         >
             <svg class="w-5 h-5 animate-spin text-[#0058A8]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <span class="font-bold" x-text="attendanceMode === 'CHECK_OUT' ? 'Mencatat presensi pulang ke server resmi Kemenkeu...' : 'Mencatat presensi masuk ke server resmi Kemenkeu...'">Mencatat presensi ke server resmi Kemenkeu...</span>
+            <span class="font-bold" x-text="attendanceMode === 'CHECK_OUT' ? 'Menyimpan presensi pulang...' : 'Menyimpan presensi masuk...'">Menyimpan presensi...</span>
         </div>
 
         <!-- Attendance Result Card (US-304 & US-305) -->
@@ -296,6 +301,8 @@
             </div>
         </div>
 
+        @if($attendanceMode === 'CHECK_IN' || ($attendanceMode === 'CHECK_OUT' && $canCheckOut))
+        <div x-show="canAccessScanner" class="space-y-4">
         <!-- STEP 1: Konfirmasi Posisi Tugas Hari Ini (FR-201) -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
             <div class="flex items-center space-x-2">
@@ -366,7 +373,7 @@
             <!-- GPS State: Locating -->
             <div x-show="gpsStatus === 'locating'" class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl flex items-center gap-2.5 text-xs text-[#0058A8]">
                 <svg class="w-4 h-4 animate-spin text-[#0058A8] shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span class="font-medium">Mendeteksi koordinat GPS presisi tinggi & batas perimeter...</span>
+                <span class="font-medium">Mencari lokasi GPS...</span>
             </div>
 
             <!-- GPS State: Valid (Inside Perimeter) -->
@@ -393,7 +400,7 @@
                     <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-200/80 text-rose-900" x-text="distanceFromOffice + ' m'">150 m</span>
                 </div>
                 <p class="text-[11px] text-rose-700 leading-relaxed">
-                    Anda berada sejauh <strong x-text="distanceFromOffice + ' meter'"></strong> dari titik koordinat kantor. Presensi hanya diizinkan dalam radius 100 meter.
+                    Jarak Anda <strong x-text="distanceFromOffice + ' m'"></strong> (maks. 100 meter dari kantor).
                 </p>
             </div>
 
@@ -415,7 +422,7 @@
                     <span>Lokasi Tiruan Terdeteksi (Fake GPS)</span>
                 </div>
                 <p class="text-[11px] text-rose-800 leading-relaxed">
-                    Sistem mendeteksi aplikasi Fake GPS / Lokasi Tiruan pada perangkat Anda. Matikan aplikasi pihak ketiga tersebut untuk dapat melanjutkan presensi.
+                    Matikan aplikasi lokasi palsu (Fake GPS) untuk melanjutkan presensi.
                 </p>
             </div>
 
@@ -477,7 +484,7 @@
 
                 <!-- Challenge Instruction -->
                 <p class="text-xs text-gray-700 leading-relaxed" x-text="livenessInstruction">
-                    Posisikan wajah Anda tepat di tengah bingkai oval hijau untuk memulai verifikasi liveness.
+                    Arahkan wajah ke bingkai, lalu menoleh perlahan.
                 </p>
             </div>
 
@@ -608,8 +615,8 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                         </div>
                         <div>
-                            <span class="font-bold text-gray-900 block leading-tight">Kendala Biometrik Wajah?</span>
-                            <span class="text-[11px] text-gray-500 leading-tight">Gunakan swafoto darurat (verifikasi supervisor)</span>
+                            <span class="font-bold text-gray-900 block leading-tight">Kamera Bermasalah?</span>
+                            <span class="text-[11px] text-gray-500 leading-tight">Kirim swafoto darurat</span>
                         </div>
                     </div>
                     <button 
@@ -644,6 +651,8 @@
                 </button>
             </div>
         </div>
+        </div>
+        @endif
 
         <!-- Fallback Emergency Modal (FR-209 / US-501) -->
         <div 
@@ -801,7 +810,6 @@
                 </template>
             </div>
         </div>
-        @endif
     </div>
 
     <!-- Alpine.js Face Attendance & Liveness Scanner Component -->
@@ -827,8 +835,13 @@
                 fallbackSuccessResult: null,
 
                 attendanceMode: config.attendanceMode || 'CHECK_IN',
+                canCheckOut: config.canCheckOut !== undefined ? Boolean(config.canCheckOut) : true,
+                scheduledCheckOutTime: config.scheduledCheckOutTime || null,
                 isCheckedIn: Boolean(config.isCheckedIn),
                 isCheckedOut: Boolean(config.isCheckedOut),
+                get canAccessScanner() {
+                    return this.attendanceMode === 'CHECK_IN' || (this.attendanceMode === 'CHECK_OUT' && this.canCheckOut);
+                },
                 defaultPositionId: config.defaultPositionId,
                 defaultPositionName: config.defaultPositionName,
                 selectedPositionId: config.defaultPositionId,
@@ -915,8 +928,10 @@
 
                 initScanner() {
                     this.startClock();
-                    this.requestGpsLocation();
-                    this.loadFaceApiModels();
+                    if (this.canAccessScanner) {
+                        this.requestGpsLocation();
+                        this.loadFaceApiModels();
+                    }
                 },
 
                 requestGpsLocation() {
@@ -1034,10 +1049,14 @@
                 startClock() {
                     setInterval(() => {
                         const now = new Date();
-                        const hours = String(now.getHours()).padStart(2, '0');
-                        const minutes = String(now.getMinutes()).padStart(2, '0');
-                        const seconds = String(now.getSeconds()).padStart(2, '0');
-                        this.serverTime = `${hours}:${minutes}:${seconds}`;
+                        const wibFormatter = new Intl.DateTimeFormat('en-GB', {
+                            timeZone: 'Asia/Jakarta',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                        });
+                        this.serverTime = wibFormatter.format(now);
                     }, 1000);
                 },
 
@@ -1053,8 +1072,7 @@
                             
                             await Promise.all([
                                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL).catch(() => null),
-                                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL).catch(() => null),
-                                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL).catch(() => null)
+                                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL).catch(() => null)
                             ]);
 
                             this.modelsLoaded = true;
@@ -1370,8 +1388,12 @@
                             if (!isCheckOut) {
                                 this.attendanceMode = 'CHECK_OUT';
                                 this.isCheckedIn = true;
+                                this.canCheckOut = Boolean(json.data.can_check_out);
+                                this.scheduledCheckOutTime = json.data.scheduled_end_time || null;
                             } else {
+                                this.attendanceMode = 'COMPLETED';
                                 this.isCheckedOut = true;
+                                this.canCheckOut = false;
                             }
                             this.feedbackMessage = isCheckOut ? 'Presensi Pulang Berhasil Dicatat!' : 'Presensi Masuk Berhasil Dicatat!';
                             this.feedbackBannerClasses = 'bg-emerald-900/90 text-white border-emerald-400';

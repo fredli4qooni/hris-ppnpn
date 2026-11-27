@@ -9,7 +9,7 @@
                     </div>
                     <div>
                         <h2 class="text-sm font-bold text-gray-900">Dispensasi Kahar (Force Majeure)</h2>
-                        <p class="text-[11px] text-gray-500">Pembebasan Sanksi Potongan TL (FR-303 / US-502)</p>
+                        <p class="text-[11px] text-gray-500">Izin Keterlambatan Kondisi Darurat</p>
                     </div>
                 </div>
                 <a 
@@ -25,10 +25,10 @@
             <div class="bg-blue-50/70 p-3 rounded-xl border border-blue-200/80 text-xs text-blue-900 space-y-1">
                 <div class="font-bold flex items-center gap-1.5 text-blue-950">
                     <svg class="w-4 h-4 text-[#0058A8] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span>Ketentuan Pembebasan Potongan Keterlambatan:</span>
+                    <span>Ketentuan Dispensasi Keterlambatan:</span>
                 </div>
                 <p class="text-[11px] text-blue-800 leading-relaxed">
-                    Karyawan yang terlambat hadir akibat peristiwa di luar kendali wajar (Bencana Alam, Kecelakaan Lalu Lintas, Musibah Keluarga Inti) dapat mengajukan pembebasan potongan honor TL dengan melampirkan bukti resmi dan disahkan berjenjang oleh <strong>Supervisor Lapangan</strong> &amp; <strong>Kasubbag Umum / PPK</strong>.
+                    Pegawai yang terlambat karena kondisi darurat (bencana alam, kecelakaan, musibah keluarga) dapat mengajukan dispensasi dengan melampirkan bukti untuk diverifikasi oleh <strong>Supervisor Lapangan</strong> &amp; <strong>Kasubbag Umum / PPK</strong>.
                 </p>
             </div>
         </div>

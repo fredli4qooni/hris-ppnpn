@@ -87,6 +87,8 @@ Route::middleware('auth')->group(function () {
         });
         Route::get('/mobile/attendance/history', [AttendanceHistoryController::class, 'index'])->name('mobile.attendance.history');
         Route::get('/mobile/profile', [ProfileController::class, 'show'])->name('mobile.profile');
+        Route::post('/mobile/profile/photo', [ProfileController::class, 'updatePhoto'])->name('mobile.profile.photo.update');
+        Route::delete('/mobile/profile/photo', [ProfileController::class, 'destroyPhoto'])->name('mobile.profile.photo.destroy');
         Route::get('/mobile/discipline', [DisciplineLedgerController::class, 'index'])->name('mobile.discipline.index');
 
         // Attendance Corrections / Lupa Absen (FR-210 / US-501)

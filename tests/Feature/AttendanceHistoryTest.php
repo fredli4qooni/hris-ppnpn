@@ -84,7 +84,16 @@ class AttendanceHistoryTest extends TestCase
             'nextPeriod',
         ]);
         $response->assertSee('Riwayat Presensi');
-        $response->assertSee('Transparansi Potongan Honor');
+        $response->assertSee('SEN');
+        $response->assertSee('MIN');
+        $response->assertSee("viewMode = 'calendar'", false);
+        $response->assertSee("openKpiModal('tolerance')", false);
+        $response->assertSee("openKpiModal('late')", false);
+        $response->assertSee('Detail Toleransi', false);
+        $response->assertSee('Detail Terlambat', false);
+        $response->assertDontSee('Transparansi Potongan Honor');
+        $response->assertDontSee('Estimasi Potongan');
+        $response->assertDontSee('Rp ');
     }
 
     /**
@@ -352,5 +361,65 @@ class AttendanceHistoryTest extends TestCase
         $attendances = $response->viewData('attendances');
         $this->assertCount(1, $attendances);
         $this->assertEquals($this->employee->id, $attendances->first()->employee_id);
+    }
+
+    /**
+     * Test check-in and check-out times are accurately displayed in WIB without +7h timezone shift (Milestone 1 - Poin 4).
+     */
+    public function test_history_displays_accurate_wib_times_without_timezone_shift(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-27 07:20:00', 'Asia/Jakarta'));
+
+        $img = imagecreatetruecolor(50, 50);
+        ob_start();
+        imagejpeg($img, null, 70);
+        $jpegBinary = ob_get_clean();
+        imagedestroy($img);
+        $photoBase64 = 'data:image/jpeg;base64,'.base64_encode($jpegBinary);
+
+        // Perform check-in at 07:20 WIB
+        $this->actingAs($this->karyawanUser)
+            ->postJson('/mobile/attendance/check-in', [
+                'position_id' => $this->driverPosition->id,
+                'latitude' => (float) $this->office->latitude,
+                'longitude' => (float) $this->office->longitude,
+                'liveness_verified' => true,
+                'photo' => $photoBase64,
+            ])
+            ->assertOk();
+
+        // Perform check-out at 18:05 WIB (after Driver 18:00 schedule end)
+        Carbon::setTestNow(Carbon::parse('2026-11-27 18:05:00', 'Asia/Jakarta'));
+        $this->actingAs($this->karyawanUser)
+            ->postJson('/mobile/attendance/check-out', [
+                'latitude' => (float) $this->office->latitude,
+                'longitude' => (float) $this->office->longitude,
+                'liveness_verified' => true,
+                'photo' => $photoBase64,
+            ])
+            ->assertOk();
+
+        $response = $this->actingAs($this->karyawanUser)->get('/mobile/attendance/history?month=11&year=2026');
+
+        $response->assertOk();
+        $response->assertSee('07:20 WIB');
+        $response->assertSee('18:05 WIB');
+        $response->assertSee('07:20');
+        $response->assertSee('18:05');
+        $response->assertDontSee('14:20 WIB');
+
+        // Verify calendarDays structure passed to view
+        $calendarDays = $response->viewData('calendarDays');
+        $this->assertCount(30, $calendarDays);
+        $day27 = collect($calendarDays)->firstWhere('day', 27);
+        $this->assertEquals('07:20', $day27['check_in_short']);
+        $this->assertEquals('18:05', $day27['check_out_short']);
+
+        // Verify photo URLs are root-relative same-origin (/storage/...) so CSP img-src 'self' allows them on any host
+        /** @var Collection<int, Attendance> $attendances */
+        $attendances = $response->viewData('attendances');
+        $att = $attendances->first();
+        $this->assertStringStartsWith('/storage/', $att->check_in_photo_url);
+        $this->assertStringStartsWith('/storage/', $att->check_out_photo_url);
     }
 }
