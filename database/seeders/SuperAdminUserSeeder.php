@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Employee;
+use App\Models\OvertimeSetting;
 use App\Models\Position;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -53,6 +54,33 @@ class SuperAdminUserSeeder extends Seeder
             ]
         );
         $supervisor->syncRoles(['supervisor']);
+
+        // 3b. Akun Pengusul Lembur (Admin - Mas Yudha) & Penyetuju Lembur (Atasan - Pak Dedi)
+        $masYudha = User::updateOrCreate(
+            ['username' => 'masyudha'],
+            [
+                'name' => 'Mas Yudha',
+                'email' => 'yudha@djpb.kemenkeu.go.id',
+                'password' => Hash::make('password'),
+                'is_active' => true,
+                'must_change_password' => false,
+            ]
+        );
+        $masYudha->syncRoles(['admin']);
+
+        $pakDedi = User::updateOrCreate(
+            ['username' => 'pakdedi'],
+            [
+                'name' => 'Pak Dedi',
+                'email' => 'dedi@djpb.kemenkeu.go.id',
+                'password' => Hash::make('password'),
+                'is_active' => true,
+                'must_change_password' => false,
+            ]
+        );
+        $pakDedi->syncRoles(['atasan']);
+
+        OvertimeSetting::current();
 
         // 4. Sample Karyawan (Pramubhakti / OB)
         $karyawanUser = User::updateOrCreate(

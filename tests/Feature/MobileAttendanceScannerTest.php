@@ -134,7 +134,7 @@ class MobileAttendanceScannerTest extends TestCase
         $response->assertSee('manifest.json');
         $response->assertSee('apple-mobile-web-app-capable');
         $response->assertSee(route('mobile.attendance'));
-        $response->assertSee('Buka Kamera Presensi Sekarang');
+        $response->assertSee('Buka Kamera Presensi');
     }
 
     /**

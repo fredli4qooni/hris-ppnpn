@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Export\BackupDownloadController;
 use App\Http\Controllers\Export\BastReportController;
 use App\Http\Controllers\Export\EmployeeDisciplineReportController;
+use App\Http\Controllers\Export\OvertimeReportController;
 use App\Http\Controllers\Export\ParallelRunReportController;
 use App\Http\Controllers\Export\PayrollReportController;
 use App\Http\Controllers\Export\UatReportController;
@@ -11,9 +12,11 @@ use App\Http\Controllers\Mobile\AttendanceController;
 use App\Http\Controllers\Mobile\AttendanceCorrectionController;
 use App\Http\Controllers\Mobile\AttendanceHistoryController;
 use App\Http\Controllers\Mobile\DisciplineLedgerController;
+use App\Http\Controllers\Mobile\HomeController;
 use App\Http\Controllers\Mobile\LateExceptionController;
 use App\Http\Controllers\Mobile\LeaveRequestController;
 use App\Http\Controllers\Mobile\NotificationController;
+use App\Http\Controllers\Mobile\OvertimeController;
 use App\Http\Controllers\Mobile\ProfileController;
 use App\Http\Controllers\Mobile\UserGuideController;
 use App\Http\Middleware\EnsurePasswordIsChanged;
@@ -69,11 +72,15 @@ Route::middleware('auth')->group(function () {
     // Employee Discipline History & BAP Print / Export (FR-407 / US-504)
     Route::get('/admin/employees/{employee}/discipline-summary', [EmployeeDisciplineReportController::class, 'showSummary'])->name('admin.employees.discipline-summary');
 
+    // Overtime Documents & Recap Exports (SPKL, SPTPL, Rekap Bulanan)
+    Route::get('/admin/overtime/requests/{overtimeRequest}/print-pdf', [OvertimeReportController::class, 'printRequest'])->name('admin.overtime.request.print');
+    Route::get('/admin/overtime/spkl/{overtimeMasterOrder}/print-pdf', [OvertimeReportController::class, 'printMasterOrder'])->name('admin.overtime.spkl.print');
+    Route::get('/admin/overtime/recap/export-excel', [OvertimeReportController::class, 'exportRecapExcel'])->name('admin.overtime.recap.excel');
+    Route::get('/admin/overtime/recap/export-pdf', [OvertimeReportController::class, 'exportRecapPdf'])->name('admin.overtime.recap.pdf');
+
     // Protected Employee Mobile Portal
     Route::middleware(EnsurePasswordIsChanged::class)->group(function () {
-        Route::get('/mobile/home', function () {
-            return view('mobile.home');
-        })->name('mobile.home');
+        Route::get('/mobile/home', [HomeController::class, 'index'])->name('mobile.home');
 
         Route::get('/mobile/attendance', [AttendanceController::class, 'showScanner'])->name('mobile.attendance');
 
@@ -102,6 +109,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/mobile/late-exceptions/create', [LateExceptionController::class, 'create'])->name('mobile.late-exceptions.create');
         Route::post('/mobile/late-exceptions', [LateExceptionController::class, 'store'])->name('mobile.late-exceptions.store');
         Route::get('/mobile/late-exceptions/{lateException}', [LateExceptionController::class, 'show'])->name('mobile.late-exceptions.show');
+
+        // Overtime Requests & SPTPL Viewer
+        Route::get('/mobile/overtime', [OvertimeController::class, 'index'])->name('mobile.overtime.index');
+        Route::get('/mobile/overtime/create', [OvertimeController::class, 'create'])->name('mobile.overtime.create');
+        Route::post('/mobile/overtime/parse-pdf', [OvertimeController::class, 'parsePdf'])->name('mobile.overtime.parse-pdf');
+        Route::post('/mobile/overtime', [OvertimeController::class, 'store'])->name('mobile.overtime.store');
+        Route::get('/mobile/overtime/{overtimeRequest}', [OvertimeController::class, 'show'])->name('mobile.overtime.show');
 
         // Leave & Permit Requests (FR-501, FR-502, FR-504, FR-505)
         Route::get('/mobile/leaves', [LeaveRequestController::class, 'index'])->name('mobile.leaves.index');

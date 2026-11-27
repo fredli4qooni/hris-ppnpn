@@ -16,7 +16,8 @@ use Illuminate\Support\Collection;
 class MonthlyClosingService
 {
     public function __construct(
-        protected ViolationSanctionService $sanctionService
+        protected ViolationSanctionService $sanctionService,
+        protected OvertimeService $overtimeService
     ) {}
 
     /**
@@ -94,7 +95,7 @@ class MonthlyClosingService
         $periodLabel = "{$monthName} {$year}";
 
         /** @var Collection<int, Employee> $allActiveEmployees */
-        $allActiveEmployees = Employee::with(['position', 'user'])
+        $allActiveEmployees = Employee::with(['position'])
             ->where('is_active', true)
             ->orderBy('id', 'asc')
             ->get();
@@ -144,6 +145,17 @@ class MonthlyClosingService
             ->where('is_active', true)
             ->get()
             ->groupBy('employee_id');
+
+        $overtimeRecap = $this->overtimeService->getMonthlyOvertimeRecap(
+            $year,
+            $month,
+            $employeeId,
+            $employees,
+            $allAttendances,
+            false
+        );
+        $overtimeItemsMap = $overtimeRecap['items'];
+        $overtimeLetterEmployees = [];
 
         foreach ($employees as $employee) {
             $baseSalary = (float) ($employee->base_salary ?? 0.00);
@@ -205,6 +217,26 @@ class MonthlyClosingService
             $totalDeductionsAmount += $empTotalDeduction;
             $totalNetSalary += $netSalary;
 
+            $overtimeSummary = $overtimeItemsMap[$employee->id] ?? [
+                'hours_with_letter' => 0.0,
+                'hours_without_letter' => 0.0,
+                'total_hours' => 0.0,
+                'has_overtime_letter' => false,
+                'letter_numbers' => [],
+                'overtime_status_label' => '-',
+            ];
+
+            if ($overtimeSummary['has_overtime_letter']) {
+                $overtimeLetterEmployees[] = [
+                    'employee_id' => $employee->id,
+                    'employee_code' => $employee->employee_code,
+                    'name' => $employee->full_name,
+                    'position_name' => $employee->position?->name ?? 'PPNPN',
+                    'hours_with_letter' => $overtimeSummary['hours_with_letter'],
+                    'letter_numbers' => $overtimeSummary['letter_numbers'],
+                ];
+            }
+
             $items[] = [
                 'employee_id' => $employee->id,
                 'employee_code' => $employee->employee_code,
@@ -231,6 +263,12 @@ class MonthlyClosingService
                 'total_deduction_amount' => $empTotalDeduction,
                 'net_salary' => $netSalary,
                 'is_termination_recommended' => $isTermination,
+                'overtime_hours_with_letter' => $overtimeSummary['hours_with_letter'],
+                'overtime_hours_without_letter' => $overtimeSummary['hours_without_letter'],
+                'overtime_total_hours' => $overtimeSummary['total_hours'],
+                'has_overtime_letter' => $overtimeSummary['has_overtime_letter'],
+                'overtime_letter_numbers' => $overtimeSummary['letter_numbers'],
+                'overtime_status_label' => $overtimeSummary['overtime_status_label'],
             ];
 
             if ($employeeId !== null) {
@@ -273,6 +311,8 @@ class MonthlyClosingService
             'selected_employee_id' => $employeeId,
             'employee_options' => $employeeOptions,
             'daily_details' => $dailyDetails,
+            'overtime_letter_employees' => $overtimeLetterEmployees,
+            'overtime_totals' => $overtimeRecap['totals'],
             'items' => $items,
             'totals' => $totals,
         ];

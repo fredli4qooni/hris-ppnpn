@@ -121,6 +121,14 @@ class Employee extends Model
     }
 
     /**
+     * Overtime request line items involving this employee.
+     */
+    public function overtimeRequestItems(): HasMany
+    {
+        return $this->hasMany(OvertimeRequestItem::class);
+    }
+
+    /**
      * Discipline and SPK violation records.
      */
     public function violations(): HasMany

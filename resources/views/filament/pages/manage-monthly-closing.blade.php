@@ -230,6 +230,7 @@
                             <th class="py-2.5 px-3 text-right bg-amber-50/70 text-amber-900 font-bold border-r border-amber-100 min-w-[105px] whitespace-nowrap">Pot.&nbsp;SP</th>
                             <th class="py-2.5 px-3 text-right text-rose-800 font-bold min-w-[115px] whitespace-nowrap">Total Potongan</th>
                             <th class="py-2.5 px-3 text-right text-emerald-800 font-bold min-w-[120px] whitespace-nowrap">Honor Bersih</th>
+                            <th class="py-2.5 px-3 min-w-[165px] whitespace-nowrap">Keterangan Lembur</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -298,10 +299,23 @@
                                 <td class="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-700 text-xs whitespace-nowrap">
                                     Rp {{ number_format($row['net_salary'], 0, ',', '.') }}
                                 </td>
+                                <td class="py-2.5 px-3 text-[10px] whitespace-nowrap">
+                                    @if($row['has_overtime_letter'] ?? false)
+                                        <span class="inline-block px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                            {{ (float) ($row['overtime_hours_with_letter'] ?? 0) }}j &bull; Ada Surat ({{ implode(', ', $row['overtime_letter_numbers'] ?? []) }})
+                                        </span>
+                                    @elseif(($row['overtime_hours_without_letter'] ?? 0) > 0)
+                                        <span class="inline-block px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                            {{ (float) $row['overtime_hours_without_letter'] }}j &bull; Tanpa Surat
+                                        </span>
+                                    @else
+                                        <span class="text-gray-400">-</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="15" class="py-8 text-center text-gray-400">
+                                <td colspan="16" class="py-8 text-center text-gray-400">
                                     Tidak ada pegawai aktif yang terdaftar dalam sistem.
                                 </td>
                             </tr>
@@ -331,8 +345,67 @@
                             <td class="py-3 px-3 text-right font-mono font-extrabold text-emerald-700 text-xs">
                                 Rp {{ number_format($totals['total_net_salary'], 0, ',', '.') }}
                             </td>
+                            <td class="py-3 px-3 text-[10px] text-[#0058A8] font-bold">
+                                {{ count($payroll['overtime_letter_employees'] ?? []) }} Ada Surat Tugas
+                            </td>
                         </tr>
                     </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Keterangan Pegawai Dalam Surat Tugas Lembur (Tutup Bulan) -->
+        @php
+            $overtimeLetterEmployees = $payroll['overtime_letter_employees'] ?? [];
+        @endphp
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
+            <div class="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h3 class="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                        Keterangan Surat Tugas Lembur Periode {{ $payroll['period_label'] }} ({{ count($overtimeLetterEmployees) }} Pegawai)
+                    </h3>
+                    <p class="text-[11px] text-gray-500">
+                        Daftar personil PPNPN yang tercantum dalam SPTPL resmi berstatus Disetujui (menampilkan total waktu lembur, tanpa tarif).
+                    </p>
+                </div>
+                <a
+                    href="{{ route('filament.admin.pages.overtime-recap-page', ['year' => $selectedYear, 'month' => $selectedMonth]) }}"
+                    class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0058A8] border border-blue-200 text-xs font-bold rounded-xl transition"
+                >
+                    Buka Rekap Lembur &rarr;
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-[11px] text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-[10px] font-bold text-gray-700 uppercase border-b border-gray-200">
+                            <th class="py-2 px-3 text-center">No</th>
+                            <th class="py-2 px-3">Nama Pegawai</th>
+                            <th class="py-2 px-3">Jabatan</th>
+                            <th class="py-2 px-3">Nomor Surat Tugas Lembur (SPTPL)</th>
+                            <th class="py-2 px-3 text-right">Total Waktu Lembur</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($overtimeLetterEmployees as $otIdx => $otRow)
+                            <tr>
+                                <td class="py-2 px-3 text-center text-gray-400 font-mono">{{ $otIdx + 1 }}</td>
+                                <td class="py-2 px-3 font-bold text-gray-900">
+                                    {{ $otRow['name'] }}
+                                    <span class="block text-[10px] font-mono font-normal text-gray-500">{{ $otRow['employee_code'] }}</span>
+                                </td>
+                                <td class="py-2 px-3 text-gray-700">{{ $otRow['position_name'] }}</td>
+                                <td class="py-2 px-3 font-mono font-semibold text-[#0058A8]">{{ implode(', ', $otRow['letter_numbers']) }}</td>
+                                <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700">{{ (float) $otRow['hours_with_letter'] }} Jam</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="py-6 text-center text-gray-400">
+                                    Belum ada pegawai yang tercantum pada Surat Tugas Lembur (SPTPL) periode {{ $payroll['period_label'] }}.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
                 </table>
             </div>
         </div>

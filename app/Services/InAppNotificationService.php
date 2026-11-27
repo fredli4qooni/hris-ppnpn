@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeViolation;
 use App\Models\LateException;
 use App\Models\LeaveRequest;
+use App\Models\OvertimeRequest;
 use App\Models\User;
 use App\Notifications\AttendanceCorrectionFinalDecisionNotification;
 use App\Notifications\AttendanceCorrectionSubmittedNotification;
@@ -16,6 +17,7 @@ use App\Notifications\LateExceptionSubmittedNotification;
 use App\Notifications\LeaveRequestApprovedTier1Notification;
 use App\Notifications\LeaveRequestFinalDecisionNotification;
 use App\Notifications\LeaveRequestSubmittedNotification;
+use App\Notifications\OvertimeStatusChangedNotification;
 use App\Notifications\ViolationRecordedNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -122,6 +124,38 @@ class InAppNotificationService
         $user = $lateException->employee?->user;
         if ($user) {
             $user->notify(new LateExceptionFinalDecisionNotification($lateException));
+        }
+    }
+
+    /**
+     * Dispatch notification for overtime request lifecycle events.
+     */
+    public function notifyOvertimeStatusChanged(OvertimeRequest $overtimeRequest, string $eventType, ?string $spklReminder = null): void
+    {
+        $overtimeRequest->loadMissing(['proposer', 'items.employee.user']);
+
+        if ($eventType === 'SUBMITTED') {
+            $approvers = User::role('atasan')->get();
+            if ($approvers->isNotEmpty()) {
+                Notification::send($approvers, new OvertimeStatusChangedNotification($overtimeRequest, $eventType, $spklReminder));
+            }
+
+            return;
+        }
+
+        if ($overtimeRequest->proposer) {
+            $overtimeRequest->proposer->notify(new OvertimeStatusChangedNotification($overtimeRequest, $eventType, $spklReminder));
+        }
+
+        if ($eventType === 'APPROVED') {
+            $employeeUsers = $overtimeRequest->items
+                ->map(fn ($item): ?User => $item->employee?->user)
+                ->filter()
+                ->unique('id');
+
+            if ($employeeUsers->isNotEmpty()) {
+                Notification::send($employeeUsers, new OvertimeStatusChangedNotification($overtimeRequest, $eventType, $spklReminder));
+            }
         }
     }
 }

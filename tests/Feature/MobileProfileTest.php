@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -209,5 +210,40 @@ class MobileProfileTest extends TestCase
         $profilePage->assertSuccessful();
         $profilePage->assertSee('Unggah Foto');
         $profilePage->assertDontSee('Hapus Foto');
+    }
+
+    /**
+     * Test redesigned mobile home displays identity hero, quick access menu, and dynamic monthly attendance summary.
+     */
+    public function test_mobile_home_displays_redesigned_dashboard_and_attendance_summary(): void
+    {
+        Attendance::create([
+            'employee_id' => $this->employee->id,
+            'position_id' => $this->employee->position_id,
+            'office_location_id' => 1,
+            'date' => now('Asia/Jakarta')->toDateString(),
+            'check_in_at' => now('Asia/Jakarta')->setTime(6, 55),
+            'status' => Attendance::STATUS_ON_TIME,
+            'tl_category' => Attendance::TL_NONE,
+            'deduction_percentage' => 0.00,
+        ]);
+
+        $response = $this->actingAs($this->karyawanUser)->get(route('mobile.home'));
+
+        $response->assertSuccessful();
+        $response->assertSee('AS');
+        $response->assertSee('Aktif Hari Ini');
+        $response->assertSee('Waktunya Presensi Pulang');
+        $response->assertSee('Akses Cepat');
+        $response->assertSee('Ringkasan Kehadiran');
+        $response->assertSee('100%');
+        $response->assertSee('Hari Hadir');
+        $response->assertDontSee('Kehadiran Anda sangat baik!');
+        $response->assertDontSee('Rp ');
+
+        $lastMonthResponse = $this->actingAs($this->karyawanUser)
+            ->get(route('mobile.home', ['summary_period' => 'last_month']));
+        $lastMonthResponse->assertSuccessful();
+        $lastMonthResponse->assertSee('0%');
     }
 }

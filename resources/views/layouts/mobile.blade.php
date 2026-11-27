@@ -23,20 +23,21 @@
     <x-offline-banner />
 
     <!-- Top Header -->
-    <header class="sticky top-0 z-40 bg-[#0B2A4A] text-white shadow-md border-b-4 border-[#F8B810]">
-        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <img src="{{ asset('images/logo-djpb.png') }}" alt="Logo DJPb" class="h-9 w-auto object-contain">
-                <div>
-                    <h1 class="text-xs font-bold tracking-wider uppercase leading-tight">Kanwil DJPb Lampung</h1>
-                    <p class="text-[11px] text-blue-200">Sistem Presensi PPNPN</p>
+    <header class="sticky top-0 z-40 bg-gradient-to-r from-[#09223E] via-[#0B2A4A] to-[#0E3A68] text-white shadow-md overflow-hidden">
+        <div class="max-w-md mx-auto px-4 pt-3 pb-4 flex items-center justify-between relative z-10">
+            <div class="flex items-center space-x-2.5 min-w-0">
+                <img src="{{ asset('images/logo-djpb.png') }}" alt="Logo DJPb" class="h-9 w-auto object-contain shrink-0">
+                <div class="h-7 w-px bg-white/25 shrink-0"></div>
+                <div class="min-w-0">
+                    <h1 class="text-[11px] font-extrabold tracking-wider uppercase leading-tight truncate">Kanwil DJPb Lampung</h1>
+                    <p class="text-[10px] text-blue-200 leading-tight truncate">Sistem Presensi PPNPN</p>
                 </div>
             </div>
 
             @auth
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
                 <!-- In-App Notification Bell (FR-701 / US-601) -->
-                <a href="{{ route('mobile.notifications.index') }}" class="relative p-1.5 rounded-lg text-blue-100 hover:text-white hover:bg-white/10 transition" title="Pusat Notifikasi">
+                <a href="{{ route('mobile.notifications.index') }}" class="relative p-1.5 rounded-xl text-blue-100 hover:text-white hover:bg-white/10 transition" title="Pusat Notifikasi">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                     </svg>
@@ -44,7 +45,7 @@
                         $unreadNotificationsCount = Auth::user()->unreadNotifications()->count();
                     @endphp
                     @if($unreadNotificationsCount > 0)
-                        <span class="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-sm ring-2 ring-[#0B2A4A] animate-pulse">
+                        <span class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-sm ring-2 ring-[#0B2A4A] animate-pulse">
                             {{ $unreadNotificationsCount > 99 ? '99+' : $unreadNotificationsCount }}
                         </span>
                     @endif
@@ -52,7 +53,7 @@
 
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
-                    <button type="submit" class="text-xs bg-red-600/80 hover:bg-red-600 px-2.5 py-1 rounded text-white font-medium transition flex items-center gap-1 cursor-pointer">
+                    <button type="submit" class="text-[11px] bg-white/10 hover:bg-red-600/90 border border-white/15 px-2.5 py-1.5 rounded-xl text-white font-semibold transition flex items-center gap-1 cursor-pointer" title="Keluar">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                         <span>Keluar</span>
                     </button>
@@ -60,6 +61,8 @@
             </div>
             @endauth
         </div>
+        <!-- Curved Gold Bottom Accent -->
+        <div class="h-1.5 w-full bg-gradient-to-r from-[#0B2A4A] via-[#F8B810] to-[#F8B810]"></div>
     </header>
 
     <!-- Main Content -->
